@@ -1,0 +1,4428 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Autopilot Telemetry</title>
+  <meta name="description" content="Educational driver-assistance simulation with simulated sensor data, rule-based alerts and stopping-distance physics.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&amp;family=Barlow:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+  <style>
+/*
+ * Autopilot Telemetry
+ * Look: black and gold. Near-black surfaces with warm ivory text, one gold accent, and a
+ * glossy black car with gold trim and gold wheels. Green / orange / red are reserved for status
+ * (the warning colour is orange, not amber, so a warning never reads as the gold accent).
+ * Dark first. An ivory and gold theme is one click away (button in the header) and the choice
+ * is remembered in the browser.
+ *
+ * Layout: header, then vehicle + run settings, run summary, a road view beside the live
+ * readings, then the trend charts and the log. It is one column on a phone.
+ */
+
+:root {
+  --bg: #060607;
+  --surface: #0e0e11;
+  --surface-2: #151519;
+  --surface-3: #1d1d22;
+  --line: #2c2a22;
+  --line-soft: #1e1d18;
+  --ink: #f4efe3;
+  --ink-2: #bdb7a6;
+  --ink-3: #948e7c;
+  --accent: #d9b44a;
+  --accent-soft: rgba(217, 180, 74, 0.13);
+  --accent-ink: #1a1405;
+  --focus: #f0cf6a;
+  --gold-grad: linear-gradient(180deg, #f1d983 0%, #d9b44a 52%, #b8921f 100%);
+  --btn-ink: #1a1405;
+  --title-grad: linear-gradient(180deg, #f6e19a 0%, #d9b44a 100%);
+  --halo: rgba(217, 180, 74, 0.07);
+
+  --safe: #34d399;
+  --warn: #ff9340;
+  --crit: #ff5a5f;
+  --safe-ink: #5be0ae;
+  --warn-ink: #ffab63;
+  --crit-ink: #ff8a8f;
+  --safe-bg: rgba(52, 211, 153, 0.12);
+  --warn-bg: rgba(255, 147, 64, 0.13);
+  --crit-bg: rgba(255, 90, 95, 0.14);
+
+  --series-speed: #e8c25a;
+  --series-glare: #b8c4d6;
+
+  /* road view */
+  --shoulder: #08080a;
+  --road: #111114;
+  --lane: rgba(244, 239, 227, 0.5);
+  --obj: #6e695b;
+  --rain: #cdd5e0;
+  --fx-fog: #8f8b80;
+  --glare-color: #fff1c2;
+
+  /* car (shared by the side view and the top view): glossy black paint, gold trim */
+  --car-hi: #55555e;
+  --car-mid: #26262c;
+  --car-horizon: #060607;
+  --car-lo: #1b1b20;
+  --car-edge: rgba(232, 194, 90, 0.55);
+  --car-glass-hi: #2b2b33;
+  --car-glass-lo: #08080b;
+  --car-lamp: #fff4d6;
+  --car-arch: #030304;
+  --car-trim: #d9b44a;
+  --car-trim-hi: #f4dc8a;
+  --rim-hi: #f4dc8a;
+  --rim-lo: #a67f19;
+  --disc: #5a5648;
+  --spot: rgba(217, 180, 74, 0.1);
+  --floor-shadow: 0.6;
+
+  --font-display: 'Barlow Semi Condensed', 'Arial Narrow', system-ui, sans-serif;
+  --font-body: 'Barlow', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --r-panel: 14px;
+  --r-tile: 10px;
+  --r-ctl: 8px;
+  color-scheme: dark;
+}
+
+/* Ivory and gold. Only the surface, text, accent, status and road values change: the car keeps
+   its black paint and gold trim in both themes. */
+:root[data-theme='light'] {
+  --bg: #f5f0e4;
+  --surface: #fffdf7;
+  --surface-2: #f7f2e6;
+  --surface-3: #ece5d2;
+  --line: #d9cfb5;
+  --line-soft: #e8e1cd;
+  --ink: #15120a;
+  --ink-2: #4a4332;
+  --ink-3: #645b44;
+  --accent: #856000;
+  --accent-soft: rgba(133, 96, 0, 0.1);
+  --accent-ink: #ffffff;
+  --focus: #856000;
+  --title-grad: linear-gradient(180deg, #9a7205 0%, #7a5700 100%);
+  --halo: rgba(217, 180, 74, 0.2);
+  --safe: #0d9466;
+  --warn: #e0640f;
+  --crit: #d03a41;
+  --safe-ink: #0a7550;
+  --warn-ink: #923a00;
+  --crit-ink: #b02a31;
+  --safe-bg: rgba(13, 148, 102, 0.1);
+  --warn-bg: rgba(224, 100, 15, 0.1);
+  --crit-bg: rgba(208, 58, 65, 0.1);
+  --series-speed: #856000;
+  --series-glare: #55657d;
+  --shoulder: #e9e1cd;
+  --road: #cfc6ad;
+  --lane: rgba(255, 255, 255, 0.9);
+  --obj: #8a8372;
+  --rain: #5a6d85;
+  --fx-fog: #ece6d6;
+  --glare-color: #ffe9a0;
+  --car-edge: rgba(133, 96, 0, 0.7);
+  --spot: rgba(133, 96, 0, 0.1);
+  --floor-shadow: 0.35;
+  color-scheme: light;
+}
+
+/* ------------------------------------------------------------------ base */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--bg);
+  background-image: radial-gradient(900px 420px at 18% -8%, var(--halo), transparent 70%);
+  background-repeat: no-repeat;
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+h1,
+h2,
+p,
+dl,
+dd,
+ul,
+figure {
+  margin: 0;
+  padding: 0;
+}
+
+ul {
+  list-style: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.app {
+  display: grid;
+  gap: 16px;
+  max-width: 1160px;
+  margin-inline: auto;
+  padding-inline: 16px;
+  padding-block: 16px 40px;
+}
+
+.app > * {
+  min-width: 0;
+}
+
+@media (min-width: 720px) {
+  .app {
+    padding-inline: 24px;
+    gap: 20px;
+  }
+}
+
+.h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 19px;
+  line-height: 1.2;
+  letter-spacing: 0.005em;
+  text-wrap: balance;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  box-shadow: inset 0 1px 0 var(--halo);
+  padding: 16px;
+  min-width: 0;
+}
+
+.panel__head {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.panel__sub {
+  color: var(--ink-2);
+  font-size: 13.5px;
+  max-width: 64ch;
+}
+
+/* ------------------------------------------------------------------ header */
+
+.topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--accent);
+}
+
+.brand__name {
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 24px;
+  letter-spacing: 0.01em;
+  line-height: 1;
+}
+
+/* the title is gold; where gradient text is unsupported it stays ivory */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .brand__name {
+    padding-bottom: 3px;
+    line-height: 1.15;
+    background: var(--title-grad);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+
+.topbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.sysstat {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  font: 500 12px/1 var(--font-mono);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.sysstat::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+
+.sysstat[data-state='finished']::before {
+  background: var(--safe);
+}
+
+.sysstat[data-state='running']::before {
+  background: var(--accent);
+  animation: pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.disclaimer {
+  color: var(--ink-2);
+  font-size: 13px;
+  max-width: 100ch;
+}
+
+/* ------------------------------------------------------------------ buttons and inputs */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-ctl);
+  background: var(--surface-2);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.btn:hover {
+  background: var(--surface-3);
+  border-color: var(--ink-3);
+}
+
+.btn--primary {
+  background: var(--gold-grad);
+  border-color: transparent;
+  color: var(--btn-ink);
+}
+
+.btn--primary:hover {
+  background: var(--gold-grad);
+  border-color: transparent;
+  filter: brightness(1.08);
+}
+
+.input {
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-ctl);
+  background: var(--surface-2);
+  min-width: 0;
+}
+
+.input--mono {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.input[aria-invalid='true'] {
+  border-color: var(--crit);
+}
+
+select.input {
+  width: 100%;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------------ fields */
+
+.field {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.field__label {
+  color: var(--ink-2);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.field__hint {
+  color: var(--ink-3);
+  font-size: 12.5px;
+  max-width: 60ch;
+}
+
+.field__hint[data-error='true'] {
+  color: var(--crit-ink);
+}
+
+.top {
+  display: grid;
+  gap: 16px;
+}
+
+@media (min-width: 900px) {
+  .top {
+    grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+    gap: 20px;
+    align-items: start; /* the settings card keeps its own height instead of stretching to the vehicle card */
+  }
+}
+
+.controls {
+  display: grid;
+  gap: 22px;
+  align-content: start;
+}
+
+.seg {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: calc(var(--r-ctl) + 4px);
+  background: var(--surface-2);
+}
+
+.seg__btn {
+  min-height: 46px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--r-ctl);
+  background: transparent;
+  color: var(--ink-2);
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.2;
+  cursor: pointer;
+  text-wrap: balance;
+}
+
+.seg__btn:hover {
+  color: var(--ink);
+}
+
+.seg__btn[aria-checked='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.seedrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.seedrow .input {
+  flex: 1 1 150px;
+}
+
+/* ------------------------------------------------------------------ vehicle */
+
+.garage {
+  padding: 0;
+  overflow: hidden;
+  display: grid;
+}
+
+.garage__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding: 16px 16px 0;
+}
+
+.garage__tag {
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+
+.garage__car {
+  display: block;
+  width: 100%;
+  height: auto;
+  --status: var(--ink-3);
+  background: radial-gradient(70% 80% at 46% 88%, var(--spot), transparent 72%);
+}
+
+.garage__car[data-status='safe'] {
+  --status: var(--safe);
+}
+
+.garage__car[data-status='warning'] {
+  --status: var(--warn);
+}
+
+.garage__car[data-status='critical'] {
+  --status: var(--crit);
+}
+
+.garage__body {
+  display: grid;
+  gap: 18px;
+  padding: 4px 16px 16px;
+}
+
+@media (min-width: 600px) {
+  .garage__body {
+    grid-template-columns: minmax(150px, 0.8fr) minmax(0, 2fr);
+    gap: 24px;
+  }
+}
+
+.mods {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+
+.mod {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-tile);
+  background: var(--surface-2);
+  cursor: pointer;
+}
+
+.mod:hover {
+  border-color: var(--ink-3);
+}
+
+.mod input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+.mod__box {
+  flex: none;
+  position: relative;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--ink-3);
+  border-radius: 5px;
+}
+
+.mod input:checked + .mod__box {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.mod input:checked + .mod__box::after {
+  content: '';
+  position: absolute;
+  left: 5px;
+  top: 1.5px;
+  width: 5px;
+  height: 9px;
+  border: solid var(--accent-ink);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.mod:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.mod:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.mod__text {
+  display: grid;
+  min-width: 0;
+}
+
+.mod__name {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.mod__detail {
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+
+/* side-view car */
+
+.car-glow {
+  opacity: 0.95;
+  transition: opacity 0.4s;
+}
+
+.garage__car[data-status='idle'] .car-glow {
+  opacity: 0.25;
+}
+
+.car-floor {
+  fill: #000;
+  opacity: var(--floor-shadow);
+}
+
+.car-ground {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.car-beam {
+  opacity: 0;
+  transition: opacity 0.5s;
+}
+
+.garage__car[data-weather='fog'] .car-beam,
+.garage__car[data-weather='rain'] .car-beam {
+  opacity: 1;
+}
+
+.arch {
+  fill: var(--car-arch);
+}
+
+.body {
+  fill: url(#sbBody);
+}
+
+.body-edge {
+  fill: none;
+  stroke: var(--car-edge);
+  stroke-width: 1;
+}
+
+.crease-hi {
+  fill: none;
+  stroke: var(--car-trim-hi);
+  stroke-opacity: 0.85;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+}
+
+.crease-lo {
+  fill: none;
+  stroke: #000;
+  stroke-opacity: 0.2;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+
+.glass {
+  fill: url(#sbGlass);
+}
+
+.pillar {
+  fill: var(--car-glass-lo);
+}
+
+.glass-edge {
+  fill: none;
+  stroke: var(--car-edge);
+  stroke-width: 1.2;
+}
+
+.reflect {
+  fill: url(#sbReflect);
+}
+
+.seam {
+  fill: none;
+  stroke: #000;
+  stroke-opacity: 0.38;
+  stroke-width: 0.9;
+  stroke-linecap: round;
+}
+
+.handle {
+  fill: var(--car-trim);
+  stroke: #000;
+  stroke-opacity: 0.35;
+  stroke-width: 0.6;
+}
+
+.mirror {
+  fill: var(--car-mid);
+  stroke: #000;
+  stroke-opacity: 0.4;
+  stroke-width: 0.8;
+}
+
+.lamp-head {
+  fill: var(--car-lamp);
+}
+
+.lamp-glow {
+  fill: var(--car-lamp);
+  opacity: 0.55;
+}
+
+.lamp-tail {
+  fill: #ff4040;
+}
+
+.lamp-tail-glow {
+  fill: #ff2a2a;
+  opacity: 0.28;
+  transition: opacity 0.2s;
+}
+
+/* The side-view svg gets .is-braking while a scan is CRITICAL (see car-side.js). */
+.is-braking .lamp-tail-glow {
+  opacity: 1;
+}
+
+.is-braking .lamp-tail {
+  fill: #ff8585;
+}
+
+/* Soft red spill behind the tail. Hidden until the car brakes; without a fill it rendered as a black smear. */
+.tail-spill {
+  fill: #ff2a2a;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+
+.is-braking .tail-spill {
+  opacity: 0.5;
+}
+
+.splitter {
+  fill: var(--car-trim);
+}
+
+/* gold line along the sill, drawn in car-side.js */
+.sill-line {
+  fill: none;
+  stroke: var(--car-trim);
+  stroke-opacity: 0.85;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+}
+
+.ducktail {
+  fill: var(--car-lo);
+  opacity: 0.75;
+}
+
+.tire {
+  fill: #0b0e12;
+}
+
+.tire-wall {
+  fill: none;
+  stroke: #2c2b27;
+  stroke-width: 1.4;
+}
+
+.tire-wear {
+  fill: none;
+  stroke: var(--warn);
+  stroke-width: 1.3;
+  stroke-dasharray: 2 3.2;
+  opacity: 0;
+}
+
+.disc {
+  fill: var(--disc);
+}
+
+.caliper {
+  fill: none;
+  stroke: #4a4636;
+  stroke-width: 5.6;
+  stroke-linecap: round;
+}
+
+.rim-face {
+  fill: var(--rim-lo);
+}
+
+.rim-lip {
+  fill: none;
+  stroke: var(--rim-hi);
+  stroke-width: 1.6;
+}
+
+.rim-sheen {
+  fill: url(#sbRim);
+  opacity: 0.55;
+}
+
+.hub {
+  fill: #14110a;
+  stroke: var(--rim-hi);
+  stroke-width: 0.8;
+}
+
+.mod-perf .tire-wall {
+  stroke: var(--accent);
+}
+
+.mod-perf .rimg {
+  transform: scale(1.1);
+}
+
+.mod-perf .rim-face {
+  fill: #2a2417; /* satin black wheels, gold lip */
+}
+
+.mod-perf .rim-lip {
+  stroke: var(--car-trim-hi);
+}
+
+.mod-brakes .caliper {
+  stroke: #ff4343;
+}
+
+.mod-brakes .disc {
+  fill: #b9b2a0;
+}
+
+.mod-worn .tire {
+  fill: #34342f;
+}
+
+.mod-worn .tire-wall {
+  stroke: #55524a;
+}
+
+.mod-worn .tire-wear {
+  opacity: 0.95;
+}
+
+.garage__car[data-moving='true'] .rim-face {
+  animation: spin var(--spin-dur, 3s) linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ------------------------------------------------------------------ summary */
+
+.summary {
+  display: grid;
+  gap: 12px;
+}
+
+.counts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.count {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-tile);
+  background: var(--surface);
+  min-width: 0;
+}
+
+.count dt {
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.count dd {
+  margin-top: 4px;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 34px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.count dd span {
+  color: var(--ink-3);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.count--safe dd {
+  color: var(--safe-ink);
+}
+
+.count--warning dd {
+  color: var(--warn-ink);
+}
+
+.count--critical dd {
+  color: var(--crit-ink);
+}
+
+.count dd {
+  white-space: nowrap;
+}
+
+@media (max-width: 719px) {
+  .count {
+    padding: 10px 8px;
+  }
+  .count dd {
+    font-size: 30px;
+  }
+  .count dd span {
+    font-size: 12px;
+  }
+}
+
+@media (min-width: 720px) {
+  .count {
+    padding: 12px 16px;
+  }
+  .count dd {
+    font-size: 40px;
+  }
+}
+
+.strip {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.pip {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 7px 0 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-ctl);
+  background: var(--surface);
+  color: var(--ink-3);
+  cursor: pointer;
+  min-width: 0;
+}
+
+.pip svg {
+  width: 15px;
+  height: 15px;
+}
+
+.pip__label {
+  font: 600 11px/1 var(--font-mono);
+}
+
+.pip__dot {
+  width: 5px;
+  height: 5px;
+  margin: 5px 0;
+  border-radius: 50%;
+  background: var(--line);
+}
+
+.pip--pending {
+  border-style: dashed;
+  cursor: default;
+}
+
+.pip--safe {
+  color: var(--safe-ink);
+  background: var(--safe-bg);
+  border-color: color-mix(in srgb, var(--safe) 45%, var(--line));
+}
+
+.pip--warning {
+  color: var(--warn-ink);
+  background: var(--warn-bg);
+  border-color: color-mix(in srgb, var(--warn) 50%, var(--line));
+}
+
+.pip--critical {
+  color: var(--crit-ink);
+  background: var(--crit-bg);
+  border-color: color-mix(in srgb, var(--crit) 55%, var(--line));
+}
+
+.pip[aria-pressed='true'] {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+/* ------------------------------------------------------------------ stage: road view and live readings */
+
+.stage {
+  display: grid;
+  gap: 16px;
+  align-items: start;
+}
+
+@media (min-width: 960px) {
+  .stage {
+    grid-template-columns: minmax(340px, 400px) minmax(0, 1fr);
+    gap: 20px;
+  }
+  .roadcard {
+    position: sticky;
+    top: 16px;
+  }
+}
+
+.roadcard {
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  background: var(--shoulder);
+  overflow: hidden;
+}
+
+svg.road {
+  display: block;
+  width: 100%;
+  height: auto;
+  --scroll-dur: 1s;
+}
+
+.roadcard__note {
+  padding: 10px 14px 12px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+
+.readout {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.shoulder {
+  fill: var(--shoulder);
+}
+
+rect.road {
+  fill: var(--road);
+}
+
+.road-edge {
+  stroke: var(--lane);
+  stroke-width: 2;
+  opacity: 0.5;
+}
+
+.lane-dash {
+  stroke: var(--lane);
+  stroke-width: 3;
+  stroke-dasharray: 22 26;
+  opacity: 0.55;
+}
+
+svg.road[data-playing='true'][data-moving='true'] .lane-dash {
+  animation: lanes var(--scroll-dur) linear infinite;
+}
+
+@keyframes lanes {
+  to {
+    stroke-dashoffset: -48;
+  }
+}
+
+.tick-line {
+  stroke: var(--ink-3);
+  stroke-opacity: 0.32;
+  stroke-width: 1;
+  stroke-dasharray: 2 5;
+}
+
+.tick-text {
+  fill: var(--ink-3);
+  font: 500 11px var(--font-mono);
+}
+
+.cone {
+  fill: url(#gCone);
+}
+
+.zone-react {
+  fill: var(--accent);
+  fill-opacity: 0.32;
+}
+
+.zone-brake {
+  fill: var(--accent);
+  fill-opacity: 0.15;
+}
+
+.zone-warn {
+  fill: var(--warn);
+  fill-opacity: 0.17;
+}
+
+svg.road[data-relation='inside'] .zone-brake {
+  fill: url(#pHatch);
+  fill-opacity: 1;
+}
+
+.measure {
+  stroke: var(--ink-2);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 4;
+}
+
+svg.road[data-relation='inside'] .measure {
+  stroke: var(--crit);
+}
+
+.object-body {
+  fill: var(--obj);
+  stroke: rgba(0, 0, 0, 0.35);
+}
+
+svg.road[data-relation='inside'] .object-body {
+  fill: var(--crit);
+}
+
+.object-glass {
+  fill: var(--car-glass-lo);
+  opacity: 0.85;
+}
+
+.object-hazard {
+  fill: var(--warn);
+  opacity: 0.9;
+}
+
+svg.road:not([data-relation='clear']) .object-hazard {
+  animation: blink 0.9s steps(2, jump-none) infinite;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0.15;
+  }
+}
+
+svg.road[data-idle='true'] .object,
+svg.road[data-idle='true'] .zone,
+svg.road[data-idle='true'] .measure,
+svg.road[data-idle='true'] .zlabel,
+svg.road[data-idle='true'] .olabel {
+  display: none;
+}
+
+.zlabel-text,
+.olabel-name,
+.olabel-value {
+  paint-order: stroke;
+  stroke: var(--road);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+.zlabel-text {
+  fill: var(--ink);
+  font: 600 12px var(--font-body);
+}
+
+.zk-brake {
+  fill: var(--accent);
+}
+
+.zk-warn {
+  fill: var(--warn);
+}
+
+.olabel-name {
+  fill: var(--ink-2);
+  font: 600 11px var(--font-body);
+  letter-spacing: 0.06em;
+}
+
+.olabel-value {
+  fill: var(--ink);
+  font: 600 17px var(--font-display);
+}
+
+.chip-bg {
+  fill: var(--surface);
+  fill-opacity: 0.92;
+  stroke: var(--line);
+}
+
+.chip-text {
+  fill: var(--ink);
+  font: 600 12px var(--font-body);
+}
+
+.car-caption {
+  fill: var(--ink-2);
+  font: 500 12px var(--font-mono);
+}
+
+/* top-view car */
+
+.car-shadow {
+  fill: #000;
+  opacity: 0.45;
+}
+
+.car-body {
+  fill: url(#gBody);
+  stroke: var(--car-edge);
+  stroke-width: 0.8;
+}
+
+.car-line {
+  fill: none;
+  stroke: #000;
+  stroke-opacity: 0.22;
+  stroke-width: 0.9;
+  stroke-linecap: round;
+}
+
+.car-mirror {
+  fill: var(--car-mid);
+  stroke: var(--car-edge);
+  stroke-width: 0.6;
+}
+
+.car-glass {
+  fill: var(--car-glass-lo);
+  stroke: var(--car-edge);
+  stroke-width: 0.6;
+}
+
+.car-roof {
+  fill: var(--car-glass-hi);
+  stroke: var(--car-edge);
+  stroke-width: 0.6;
+}
+
+.car-stripe {
+  fill: none;
+  stroke: var(--car-trim);
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  opacity: 0.9;
+}
+
+.car-glint {
+  fill: #fff;
+  opacity: 0.12;
+}
+
+.car-camera-ring {
+  fill: #0a0e13;
+}
+
+.car-camera {
+  fill: var(--accent);
+}
+
+.car-radar {
+  fill: #0a0e13;
+}
+
+.light-head {
+  fill: none;
+  stroke: var(--car-lamp);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.light-tail {
+  fill: none;
+  stroke: #ff4040;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.car.braking .light-tail {
+  stroke: #ff8585;
+  stroke-width: 3.2;
+  filter: drop-shadow(0 0 3px #ff3030);
+}
+
+.wheel {
+  fill: #0a0d11;
+}
+
+/* the top view paints the caliper as a thin bar, so it overrides the side-view stroke */
+.car .caliper {
+  fill: #4a4636;
+  stroke: none;
+}
+
+.car.mod-brakes .caliper {
+  fill: #ff4343;
+}
+
+.car.mod-perf .wheel {
+  stroke: var(--accent);
+  stroke-width: 0.9;
+}
+
+.car.mod-worn .wheel {
+  fill: #3a424c;
+  stroke: var(--warn);
+  stroke-width: 0.8;
+  stroke-dasharray: 2 2;
+}
+
+/* weather and glare effects */
+
+.fx-fog {
+  opacity: 0;
+  transition: opacity 0.6s;
+}
+
+svg.road[data-weather='fog'] .fx-fog {
+  opacity: 1;
+}
+
+svg.road[data-weather='rain'] .fx-fog {
+  opacity: 0.32;
+}
+
+.fx-rain {
+  opacity: 0;
+  transition: opacity 0.6s;
+}
+
+svg.road[data-weather='rain'] .fx-rain {
+  opacity: 1;
+}
+
+#pRain line {
+  stroke: var(--rain);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  opacity: 0.55;
+}
+
+svg.road[data-playing='true'][data-weather='rain'] .fx-rain-rect {
+  animation: rain 0.5s linear infinite;
+}
+
+@keyframes rain {
+  to {
+    transform: translate(-16.9px, 67.9px);
+  }
+}
+
+.fx-glare {
+  mix-blend-mode: screen;
+  pointer-events: none;
+  transition: opacity 0.5s;
+}
+
+:root[data-theme='light'] .fx-glare {
+  mix-blend-mode: normal;
+}
+
+/* ------------------------------------------------------------------ status panel */
+
+.statuspanel {
+  display: grid;
+  gap: 14px;
+  --st: var(--ink-3);
+  --st-ink: var(--ink-2);
+  --st-bg: transparent;
+  background: linear-gradient(var(--st-bg), var(--st-bg)), var(--surface);
+}
+
+.statuspanel[data-status='safe'] {
+  --st: var(--safe);
+  --st-ink: var(--safe-ink);
+  --st-bg: var(--safe-bg);
+}
+
+.statuspanel[data-status='warning'] {
+  --st: var(--warn);
+  --st-ink: var(--warn-ink);
+  --st-bg: var(--warn-bg);
+}
+
+.statuspanel[data-status='critical'] {
+  --st: var(--crit);
+  --st-ink: var(--crit-ink);
+  --st-bg: var(--crit-bg);
+}
+
+.statuspanel {
+  border-color: color-mix(in srgb, var(--st) 55%, var(--line));
+}
+
+.statuspanel__head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.statuspanel__icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border: 1.5px solid var(--st);
+  border-radius: 50%;
+  color: var(--st-ink);
+}
+
+.statuspanel__icon svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 1.5;
+}
+
+.statuspanel__scan {
+  color: var(--ink-2);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.statuspanel__word {
+  color: var(--st-ink);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 44px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.reasons {
+  display: grid;
+  gap: 8px;
+}
+
+.reason {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14.5px;
+  line-height: 1.35;
+}
+
+.reason svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+}
+
+.reason--critical svg {
+  color: var(--crit-ink);
+}
+
+.reason--warning svg {
+  color: var(--warn-ink);
+}
+
+.reason--safe svg {
+  color: var(--safe-ink);
+}
+
+.reason--idle {
+  color: var(--ink-2);
+}
+
+/* ------------------------------------------------------------------ metrics */
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (min-width: 560px) {
+  .metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+
+.metric {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-tile);
+  background: var(--surface);
+  min-width: 0;
+}
+
+.metric[data-state='warning'] {
+  border-color: color-mix(in srgb, var(--warn) 55%, var(--line));
+}
+
+.metric[data-state='critical'] {
+  border-color: color-mix(in srgb, var(--crit) 60%, var(--line));
+}
+
+.metric__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 18px;
+}
+
+.metric__name {
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.metric__flag svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.metric[data-state='warning'] .metric__flag {
+  color: var(--warn-ink);
+}
+
+.metric[data-state='critical'] .metric__flag {
+  color: var(--crit-ink);
+}
+
+.metric__flag--wx svg {
+  width: 18px;
+  height: 18px;
+  color: var(--ink-2);
+}
+
+.metric__value {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+}
+
+.metric__value strong {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 34px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.metric[data-key='env'] .metric__value strong {
+  font-size: 26px;
+}
+
+.metric__value span {
+  color: var(--ink-2);
+  font-size: 13px;
+}
+
+.metric[data-state='warning'] .metric__value strong {
+  color: var(--warn-ink);
+}
+
+.metric[data-state='critical'] .metric__value strong {
+  color: var(--crit-ink);
+}
+
+.meter {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-3);
+}
+
+.meter span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--gold-grad);
+  transition: width 0.4s;
+}
+
+.meter i {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--ink-2);
+}
+
+.metric[data-state='warning'] .meter span {
+  background: var(--warn);
+}
+
+.metric[data-state='critical'] .meter span {
+  background: var(--crit);
+}
+
+.metric__note {
+  color: var(--ink-3);
+  font-size: 12.5px;
+  line-height: 1.3;
+}
+
+/* ------------------------------------------------------------------ comparison */
+
+.compare {
+  display: grid;
+  gap: 14px;
+}
+
+#cmpBody {
+  display: grid;
+  gap: 14px;
+}
+
+.cmp__scan,
+.cmp__legend,
+.cmp__empty {
+  color: var(--ink-2);
+  font-size: 13.5px;
+}
+
+.cmp__legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+
+.cmp__key--obj {
+  flex: none;
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--ink);
+}
+
+.cmp__row {
+  display: grid;
+  gap: 8px;
+}
+
+.cmp__label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cmp__name {
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 0;
+}
+
+.cmp__val {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cmp__bar {
+  position: relative;
+  height: 12px;
+  border-radius: 6px;
+  background: var(--surface-3);
+}
+
+.cmp__fill {
+  display: block;
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.4s;
+}
+
+.cmp__row--stock .cmp__fill {
+  background: var(--ink-3);
+}
+
+.cmp__row--setup .cmp__fill {
+  background: var(--gold-grad);
+}
+
+.cmp__fill.is-over {
+  background: repeating-linear-gradient(45deg, var(--crit) 0 6px, color-mix(in srgb, var(--crit) 55%, var(--surface-3)) 6px 12px);
+}
+
+.cmp__obj {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 3px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: var(--ink);
+}
+
+.cmp__flag {
+  color: var(--crit-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.cmp__delta {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.cmp__delta[data-dir='better'] {
+  color: var(--safe-ink);
+}
+
+.cmp__delta[data-dir='worse'] {
+  color: var(--crit-ink);
+}
+
+.cmp__runtable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.cmp__runtable caption {
+  padding-bottom: 6px;
+  color: var(--ink-3);
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.cmp__runtable th,
+.cmp__runtable td {
+  padding: 7px 8px;
+  border-top: 1px solid var(--line-soft);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.cmp__runtable thead th {
+  border-top: 0;
+  color: var(--ink-3);
+  font-weight: 600;
+  font-size: 12.5px;
+}
+
+.cmp__runtable tbody th {
+  text-align: left;
+  font-weight: 600;
+}
+
+/* ------------------------------------------------------------------ charts */
+
+.charts {
+  position: relative;
+  display: grid;
+  gap: 18px;
+}
+
+.chart__title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.chart__unit {
+  color: var(--ink-3);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.chart__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.g-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+  opacity: 0.7;
+}
+
+.g-tick,
+.g-xlabel {
+  fill: var(--ink-3);
+  font: 500 11.5px var(--font-mono);
+}
+
+.g-xlabel.is-selected {
+  fill: var(--ink);
+  font-weight: 600;
+}
+
+.g-xlabel.is-pending {
+  opacity: 0.45;
+}
+
+.g-ref {
+  stroke: var(--ink-3);
+  stroke-width: 1.2;
+  stroke-dasharray: 5 4;
+}
+
+.g-reflabel {
+  fill: var(--ink-2);
+  font: 500 11.5px var(--font-body);
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 4px;
+}
+
+.g-cross {
+  stroke: var(--ink-3);
+  stroke-width: 1;
+  opacity: 0.6;
+}
+
+.g-cross.is-selected {
+  stroke: var(--ink-2);
+  stroke-width: 1.5;
+  opacity: 0.9;
+}
+
+.g-area {
+  opacity: 0.12;
+}
+
+.g-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.g-dot {
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+
+.g-dot.is-selected {
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+
+.g-value {
+  fill: var(--ink);
+  font: 600 13px var(--font-body);
+  paint-order: stroke;
+  stroke: var(--surface);
+  stroke-width: 4px;
+}
+
+.g-hit {
+  fill: transparent;
+  cursor: pointer;
+}
+
+.g-hit:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.tip {
+  position: absolute;
+  z-index: 5;
+  min-width: 176px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-tile);
+  background: var(--surface-3);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+.tip[hidden] {
+  display: none;
+}
+
+.tip__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.tip__scan {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.tip__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.5;
+}
+
+.tip__key {
+  flex: none;
+  width: 12px;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.tip__name {
+  color: var(--ink-2);
+}
+
+.tip__extra {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-2);
+  font-size: 12.5px;
+}
+
+/* ------------------------------------------------------------------ badges */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px 2px 7px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.badge svg {
+  width: 14px;
+  height: 14px;
+}
+
+.badge--safe {
+  color: var(--safe-ink);
+  background: var(--safe-bg);
+  border-color: color-mix(in srgb, var(--safe) 40%, transparent);
+}
+
+.badge--warning {
+  color: var(--warn-ink);
+  background: var(--warn-bg);
+  border-color: color-mix(in srgb, var(--warn) 45%, transparent);
+}
+
+.badge--critical {
+  color: var(--crit-ink);
+  background: var(--crit-bg);
+  border-color: color-mix(in srgb, var(--crit) 50%, transparent);
+}
+
+/* ------------------------------------------------------------------ log table */
+
+.tablewrap {
+  overflow-x: auto;
+}
+
+.log,
+.ruletable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.log th,
+.ruletable th {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-3);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.log th.num,
+.log td.num {
+  text-align: right;
+}
+
+.log td,
+.ruletable td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line-soft);
+  vertical-align: middle;
+}
+
+.logrow {
+  cursor: pointer;
+}
+
+.logrow:hover {
+  background: var(--surface-2);
+}
+
+.logrow[aria-current='true'] {
+  background: var(--accent-soft);
+}
+
+.logrow[aria-current='true'] td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.logrow:focus-visible {
+  outline-offset: -2px;
+}
+
+.c-scan {
+  display: inline-block;
+  min-width: 30px;
+  margin-right: 8px;
+  font: 700 12px var(--font-mono);
+  color: var(--ink-2);
+}
+
+.c-time time {
+  display: inline-grid;
+  vertical-align: middle;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.c-date {
+  color: var(--ink-3);
+}
+
+.c-reason {
+  min-width: 190px;
+}
+
+.more {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--ink-2);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.c-speed,
+.c-glare,
+.c-dist {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.is-inside {
+  color: var(--crit-ink);
+  font-weight: 700;
+}
+
+.wx {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.wx svg {
+  width: 16px;
+  height: 16px;
+  color: var(--ink-2);
+}
+
+@media (max-width: 719px) {
+  .log thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .log,
+  .log tbody {
+    display: block;
+  }
+
+  .log tr {
+    display: grid;
+    grid-template-columns: 2.6fr 2fr 3.4fr 3.6fr;
+    grid-template-areas:
+      'time time status status'
+      'reason reason reason reason'
+      'speed glare dist weather';
+    gap: 8px 6px;
+    padding: 12px 4px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .log td {
+    display: block;
+    padding: 0;
+    border: 0;
+    text-align: left;
+    min-width: 0;
+  }
+
+  .log td.num {
+    text-align: left;
+  }
+
+  .log td::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--ink-3);
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+
+  .log td.c-time::before,
+  .log td.c-status::before,
+  .log td.c-reason::before {
+    display: none;
+  }
+
+  .c-time {
+    grid-area: time;
+    align-self: center;
+  }
+
+  .c-time time {
+    display: inline;
+  }
+
+  .c-date {
+    display: none;
+  }
+
+  .c-status {
+    grid-area: status;
+    justify-self: end;
+  }
+
+  .c-reason {
+    grid-area: reason;
+    min-width: 0;
+    font-size: 14px;
+  }
+
+  .c-speed {
+    grid-area: speed;
+  }
+
+  .c-glare {
+    grid-area: glare;
+  }
+
+  .c-dist {
+    grid-area: dist;
+  }
+
+  .c-weather {
+    grid-area: weather;
+  }
+
+  .logrow[aria-current='true'] td:first-child {
+    box-shadow: none;
+  }
+
+  .logrow[aria-current='true'] {
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+}
+
+/* ------------------------------------------------------------------ rules and footer */
+
+.rules summary {
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 19px;
+  list-style-position: inside;
+}
+
+.rules__body {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+  max-width: 78ch;
+  color: var(--ink-2);
+  font-size: 14px;
+}
+
+.rules__body code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.rules__formula {
+  padding: 10px 12px;
+  border-radius: var(--r-ctl);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.rules__notes {
+  display: grid;
+  gap: 6px;
+  padding-left: 18px;
+  list-style: disc;
+}
+
+.footer {
+  color: var(--ink-3);
+  font-size: 12.5px;
+  text-align: center;
+}
+
+/* ------------------------------------------------------------------ motion preferences */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand__mark" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h4l2.5-6 4 12 2.5-6H22"/></svg>
+      <h1 class="brand__name">Autopilot Telemetry</h1>
+    </div>
+    <div class="topbar__actions">
+      <span class="sysstat" id="sysStat" role="status" data-state="finished">SYS_STAT: FINISHED</span>
+      <button type="button" class="btn btn--primary" id="runAgain">Run again</button>
+      <button type="button" class="btn" id="reset">Reset</button>
+      <button type="button" class="btn" id="themeToggle">Ivory theme</button>
+    </div>
+  </header>
+  <p class="disclaimer">Independent educational simulation • simulated sensor data • rule-based alerts • not vehicle telemetry or driving advice.</p>
+
+  <div class="top">
+    <section class="panel garage" aria-labelledby="garageTitle">
+      <div class="garage__head">
+        <h2 class="h2" id="garageTitle">Vehicle</h2>
+        <p class="garage__tag">Generic EV sedan. Not a real vehicle or brand.</p>
+      </div>
+      <svg class="garage__car" id="carSide" role="img" aria-label="Side view of a generic EV sedan"></svg>
+      <div class="garage__body">
+        <div class="field field--vehicle">
+          <label class="field__label" for="profileSelect">Profile</label>
+          <select class="input" id="profileSelect"></select>
+          <p class="field__hint mono" id="profileStats"></p>
+        </div>
+        <div class="field field--mods">
+          <span class="field__label" id="modsLabel">Simulated modifications</span>
+          <div class="mods" id="modsGroup" role="group" aria-labelledby="modsLabel"></div>
+          <p class="field__hint" id="modsHint">Changing the vehicle replays the same seeded run, so you can compare the effect.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel controls" aria-label="Run settings">
+      <div class="field field--scenario">
+        <span class="field__label" id="scenarioLabel">Scenario</span>
+        <div class="seg" id="scenarioGroup" role="radiogroup" aria-labelledby="scenarioLabel"></div>
+        <p class="field__hint" id="scenarioNote"></p>
+      </div>
+
+      <div class="field field--seed">
+        <label class="field__label" for="seedInput">Run seed</label>
+        <div class="seedrow">
+          <input class="input input--mono" id="seedInput" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" aria-describedby="seedHint">
+          <button type="button" class="btn" id="seedApply">Use seed</button>
+          <button type="button" class="btn" id="seedNew">New seed</button>
+        </div>
+        <p class="field__hint" id="seedHint">Reuse this number to get the same sensor values.</p>
+      </div>
+    </section>
+  </div>
+
+  <section class="summary" aria-label="Run summary">
+    <dl class="counts">
+      <div class="count"><dt>Total scans</dt><dd id="cTotal">10<span> / 10</span></dd></div>
+      <div class="count count--safe"><dt>Safe</dt><dd id="cSafe">0</dd></div>
+      <div class="count count--warning"><dt>Warnings</dt><dd id="cWarn">0</dd></div>
+      <div class="count count--critical"><dt>Critical</dt><dd id="cCrit">0</dd></div>
+    </dl>
+    <div class="strip" id="strip" role="group" aria-label="Scans in this run"></div>
+  </section>
+
+  <main class="stage">
+    <section class="roadcard" aria-label="Road view">
+      <svg class="road" id="roadView" role="img" aria-label="Top view of a generic EV sedan with stopping-distance zones and the detected object ahead"></svg>
+      <p class="roadcard__note">Distances are drawn on a compressed scale. Read the tick marks for real metres.</p>
+    </section>
+
+    <div class="readout">
+      <section class="panel statuspanel" id="statusPanel" data-status="idle" aria-live="off">
+        <div class="statuspanel__head">
+          <div class="statuspanel__icon" id="statusIcon"></div>
+          <div>
+            <p class="statuspanel__scan" id="statusScan">Scan T1</p>
+            <p class="statuspanel__word" id="statusWord">SAFE</p>
+          </div>
+        </div>
+        <ul class="reasons" id="statusReasons"></ul>
+      </section>
+
+      <section class="metrics" id="metrics" aria-label="Sensor readings for the selected scan"></section>
+
+      <section class="panel compare" aria-labelledby="cmpTitle">
+        <h2 class="h2" id="cmpTitle">Stopping distance with and without modifications</h2>
+        <div id="cmpBody"></div>
+      </section>
+    </div>
+  </main>
+
+  <section class="panel chartspanel" aria-labelledby="trendTitle">
+    <div class="panel__head">
+      <h2 class="h2" id="trendTitle">Telemetry trend</h2>
+      <p class="panel__sub">Simulated speed and camera glare for each scan. Select a point to inspect that scan.</p>
+    </div>
+    <div class="charts" id="charts"></div>
+  </section>
+
+  <section class="panel logpanel" aria-labelledby="logTitle">
+    <div class="panel__head">
+      <h2 class="h2" id="logTitle">Telemetry log</h2>
+      <p class="panel__sub">Newest scan first. Select a row to inspect it.</p>
+    </div>
+    <div class="tablewrap">
+      <table class="log">
+        <thead>
+          <tr>
+            <th scope="col">Timestamp</th>
+            <th scope="col">Status</th>
+            <th scope="col">Reason</th>
+            <th scope="col" class="num">Speed</th>
+            <th scope="col" class="num">Glare</th>
+            <th scope="col" class="num">Object / stop (m)</th>
+            <th scope="col">Weather</th>
+          </tr>
+        </thead>
+        <tbody id="logBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <details class="panel rules">
+    <summary>How alerts are decided</summary>
+    <div class="rules__body">
+      <p>Each scan is checked against these rules. The highest severity wins, and every rule that fired is listed as a reason. All numbers come from <code>src/config.js</code>.</p>
+      <div class="tablewrap">
+        <table class="ruletable" id="ruleTable"></table>
+      </div>
+      <p class="rules__formula mono">stopping distance = v × t<sub>reaction</sub> + v² / (2 × μ × weather × g × brakes), with v in m/s</p>
+      <ul class="rules__notes">
+        <li>The object ahead is treated as stationary, so relative speed is ignored and time to collision is distance ÷ own speed.</li>
+        <li>Sensor values are generated for each scan from the run seed. They are not integrated from a vehicle model.</li>
+        <li>The vehicle is a generic EV sedan. It does not describe any real vehicle or brand.</li>
+      </ul>
+    </div>
+  </details>
+
+  <footer class="footer">Autopilot Telemetry · educational simulation · <span class="mono" id="footSeed"></span></footer>
+  <p class="sr-only" id="liveMsg" role="status" aria-live="polite"></p>
+</div>
+
+<script>
+/* src/config.js */
+/*
+ * config.js
+ * Every threshold, vehicle parameter and modification lives here.
+ * The rule engine reads these values and never hard-codes a number.
+ *
+ * All files in src/ (except ui/) use a small UMD wrapper so the same code
+ * runs in the browser (window.ATM.*) and in Node (require) for the tests.
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else (root.ATM = root.ATM || {}).config = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  return {
+    gravity: 9.81, // m/s^2
+    scansPerRun: 10,
+    scanIntervalMs: 900, // pause between scans while a run replays
+
+    // Alert thresholds used by the rule engine.
+    thresholds: {
+      ttcCriticalS: 2, // CRITICAL when time-to-collision is below this
+      ttcWarningS: 4, // WARNING when time-to-collision is below this
+      speedWarningKmh: 90, // WARNING at or above this speed
+      glareWarningPct: 60, // WARNING at or above this camera glare
+      stoppingWarningFactor: 1.5, // WARNING when the object is inside factor x stopping distance
+      // WARNING when speed is above these limits in reduced-grip weather.
+      lowGripSpeedKmh: { Fog: 60, 'Heavy Rain': 50 },
+    },
+
+    // Multiplier applied to tyre grip (mu) for each weather type.
+    weatherGrip: { Clear: 1.0, Fog: 0.9, 'Heavy Rain': 0.6 },
+
+    // Generic vehicle profile. Not based on any real vehicle or brand.
+    profiles: {
+      'ev-sedan': {
+        id: 'ev-sedan',
+        name: 'EV Sedan',
+        mu: 0.8, // tyre grip coefficient
+        brakeEfficiency: 0.9, // 0..1
+        reactionTimeS: 0.5,
+      },
+    },
+
+    // Toggleable simulated modifications. Each one adds a delta to the profile.
+    mods: {
+      performanceTires: { id: 'performanceTires', label: 'Performance tires', detail: 'grip μ +0.10', mu: 0.1 },
+      upgradedBrakes: { id: 'upgradedBrakes', label: 'Upgraded brakes', detail: 'brakes +0.05 (max 1.0)', brakeEfficiency: 0.05 },
+      wornTires: { id: 'wornTires', label: 'Worn tires', detail: 'grip μ −0.15', mu: -0.15 },
+    },
+
+    // Limits so combined modifications can never produce a nonsense vehicle.
+    limits: { muMin: 0.1, muMax: 1.5, brakeMin: 0.1, brakeMax: 1.0 },
+  };
+});
+
+
+/* src/rng.js */
+/*
+ * rng.js
+ * Seedable random numbers. The same seed always produces the same sequence,
+ * which is what makes a run reproducible.
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else (root.ATM = root.ATM || {}).rng = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  const MAX_SEED = 4294967295; // 2^32 - 1
+
+  /** mulberry32: small, fast PRNG. Returns a function that yields floats in [0, 1). */
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return function next() {
+      a = (a + 0x6d2b79f5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /** Parse user input into a valid seed (integer 0..2^32-1) or return null. */
+  function parseSeed(value) {
+    const text = String(value == null ? '' : value).trim();
+    if (!/^\d{1,10}$/.test(text)) return null;
+    const n = Number(text);
+    return n <= MAX_SEED ? n : null;
+  }
+
+  /** A fresh random seed. Pass a custom source in tests. */
+  function randomSeed(source) {
+    const rand = source || Math.random;
+    return Math.floor(rand() * (MAX_SEED + 1));
+  }
+
+  return { mulberry32, parseSeed, randomSeed, MAX_SEED };
+});
+
+
+/* src/engine.js */
+/*
+ * engine.js
+ * The rule engine. Pure functions only: no DOM, no timers, no randomness.
+ * Input is a sensor sample plus a vehicle; output is a status and the reasons.
+ *
+ * Assumption: the object ahead is stationary, so closing speed equals own speed.
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./config'));
+  else (root.ATM = root.ATM || {}).engine = factory(root.ATM.config);
+})(typeof self !== 'undefined' ? self : this, function (config) {
+  'use strict';
+
+  const STATUS = { SAFE: 'SAFE', WARNING: 'WARNING', CRITICAL: 'CRITICAL' };
+  const SEVERITY = { SAFE: 0, WARNING: 1, CRITICAL: 2 };
+
+  const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
+  const round = (n, places) => {
+    const f = Math.pow(10, places);
+    return Math.round(n * f) / f;
+  };
+
+  /**
+   * Build the effective vehicle from a base profile and active modifications.
+   * Duplicate modification ids are applied once. Values are clamped to sane limits.
+   */
+  function resolveVehicle(profileId, activeMods, catalog) {
+    const cat = catalog || config;
+    const base = cat.profiles[profileId];
+    if (!base) throw new Error('Unknown vehicle profile: ' + profileId);
+
+    let mu = base.mu;
+    let brake = base.brakeEfficiency;
+    const applied = [];
+    (activeMods || []).forEach(function (id) {
+      if (applied.indexOf(id) !== -1) return;
+      const mod = cat.mods[id];
+      if (!mod) throw new Error('Unknown modification: ' + id);
+      if (mod.mu) mu += mod.mu;
+      if (mod.brakeEfficiency) brake += mod.brakeEfficiency;
+      applied.push(id);
+    });
+
+    const lim = cat.limits || config.limits;
+    return {
+      profileId: base.id,
+      name: base.name,
+      mu: clamp(round(mu, 2), lim.muMin, lim.muMax),
+      brakeEfficiency: clamp(round(brake, 2), lim.brakeMin, lim.brakeMax),
+      reactionTimeS: base.reactionTimeS,
+      mods: applied,
+    };
+  }
+
+  /** Weather multiplier for grip. Unknown weather is a programming error, not a default. */
+  function gripFactor(weather) {
+    const f = config.weatherGrip[weather];
+    if (typeof f !== 'number') throw new Error('Unknown weather: ' + weather);
+    return f;
+  }
+
+  /**
+   * Stopping distance split into reaction and braking parts (metres).
+   *   v = speed / 3.6
+   *   d_stop = v * t_reaction + v^2 / (2 * mu * g * brake_efficiency)
+   * where mu is the vehicle grip multiplied by the weather factor.
+   */
+  function stoppingBreakdown(speedKmh, vehicle, weather) {
+    const v = Math.max(0, speedKmh) / 3.6;
+    const mu = vehicle.mu * gripFactor(weather);
+    const reactionM = v * vehicle.reactionTimeS;
+    const brakingM = (v * v) / (2 * mu * config.gravity * vehicle.brakeEfficiency);
+    return { reactionM: reactionM, brakingM: brakingM, totalM: reactionM + brakingM };
+  }
+
+  function stoppingDistanceM(speedKmh, vehicle, weather) {
+    return stoppingBreakdown(speedKmh, vehicle, weather).totalM;
+  }
+
+  /** Time to collision in seconds. Infinity when the vehicle is not moving. */
+  function timeToCollisionS(distanceM, speedKmh) {
+    if (!(speedKmh > 0)) return Infinity;
+    return distanceM / (speedKmh / 3.6);
+  }
+
+  const f1 = (n) => n.toFixed(1);
+  const f2 = (n) => n.toFixed(2);
+
+  /**
+   * Speed at which the speed rule warns. A scenario can set its own through
+   * `options.speedAlertKmh` (a motorway and a city street do not share one limit).
+   * Without it the default from config.js applies.
+   */
+  function speedAlertKmh(options) {
+    const own = options && options.speedAlertKmh;
+    return typeof own === 'number' && own > 0 ? own : config.thresholds.speedWarningKmh;
+  }
+
+  /**
+   * Evaluate one sensor sample. Returns status, every triggered reason, and the derived numbers.
+   * options (optional): { speedAlertKmh }. A scenario object can be passed as is.
+   */
+  function evaluateScan(sample, vehicle, options) {
+    const t = config.thresholds;
+    const speedAlert = speedAlertKmh(options);
+    const stop = stoppingBreakdown(sample.speedKmh, vehicle, sample.weather);
+    const ttc = timeToCollisionS(sample.distanceM, sample.speedKmh);
+    const warnLimitM = t.stoppingWarningFactor * stop.totalM;
+
+    const critical = [];
+    const warning = [];
+
+    if (ttc < t.ttcCriticalS) {
+      critical.push('TTC ' + f2(ttc) + ' s is below ' + t.ttcCriticalS + ' s');
+    }
+    if (sample.distanceM < stop.totalM) {
+      critical.push('Object at ' + sample.distanceM + ' m is inside the ' + f1(stop.totalM) + ' m stopping distance');
+    }
+
+    if (ttc >= t.ttcCriticalS && ttc < t.ttcWarningS) {
+      warning.push('TTC ' + f2(ttc) + ' s is below ' + t.ttcWarningS + ' s');
+    }
+    if (sample.distanceM >= stop.totalM && sample.distanceM < warnLimitM) {
+      warning.push(
+        'Object at ' + sample.distanceM + ' m is within ' + t.stoppingWarningFactor + '× the stopping distance (' + f1(warnLimitM) + ' m)'
+      );
+    }
+    if (sample.speedKmh >= speedAlert) {
+      warning.push('Speed ' + sample.speedKmh + ' km/h is at or above ' + speedAlert + ' km/h');
+    }
+    if (sample.glarePct >= t.glareWarningPct) {
+      warning.push('Camera glare ' + sample.glarePct + '% is at or above ' + t.glareWarningPct + '%');
+    }
+    const lowGripLimit = t.lowGripSpeedKmh[sample.weather];
+    if (lowGripLimit !== undefined && sample.speedKmh > lowGripLimit) {
+      warning.push(sample.weather + ': speed ' + sample.speedKmh + ' km/h is above the ' + lowGripLimit + ' km/h limit');
+    }
+
+    const status = critical.length ? STATUS.CRITICAL : warning.length ? STATUS.WARNING : STATUS.SAFE;
+    const reasons = critical.concat(warning);
+    const reasonDetails = critical
+      .map(function (text) {
+        return { level: STATUS.CRITICAL, text: text };
+      })
+      .concat(
+        warning.map(function (text) {
+          return { level: STATUS.WARNING, text: text };
+        })
+      );
+
+    return {
+      status: status,
+      reasons: reasons.length ? reasons : ['No alert rules triggered.'],
+      reasonDetails: reasonDetails,
+      ttcS: ttc,
+      stoppingDistanceM: stop.totalM,
+      reactionM: stop.reactionM,
+      brakingM: stop.brakingM,
+      warnLimitM: warnLimitM,
+    };
+  }
+
+  /** Evaluate a whole run. Also reports status counts and the first most severe scan. */
+  function evaluateRun(samples, vehicle, options) {
+    const counts = { SAFE: 0, WARNING: 0, CRITICAL: 0 };
+    let worstIndex = 0;
+    const scans = samples.map(function (sample, i) {
+      const result = evaluateScan(sample, vehicle, options);
+      counts[result.status] += 1;
+      return Object.assign({}, sample, result);
+    });
+    scans.forEach(function (scan, i) {
+      if (SEVERITY[scan.status] > SEVERITY[scans[worstIndex].status]) worstIndex = i;
+    });
+    return { scans: scans, counts: counts, worstIndex: worstIndex };
+  }
+
+  return {
+    STATUS: STATUS,
+    SEVERITY: SEVERITY,
+    resolveVehicle: resolveVehicle,
+    gripFactor: gripFactor,
+    speedAlertKmh: speedAlertKmh,
+    stoppingBreakdown: stoppingBreakdown,
+    stoppingDistanceM: stoppingDistanceM,
+    timeToCollisionS: timeToCollisionS,
+    evaluateScan: evaluateScan,
+    evaluateRun: evaluateRun,
+  };
+});
+
+
+/* src/generator.js */
+/*
+ * generator.js
+ * Seedable generator for simulated sensor values.
+ *
+ * Values change smoothly from one scan to the next (a bounded random walk that
+ * is pulled back toward a centre value), weather tends to persist, and a
+ * scenario can script events such as an object appearing close ahead.
+ * The same seed and scenario always produce the same run.
+ *
+ * The values are generated per scan. They are not integrated from a physical model.
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./config'), require('./rng'));
+  else (root.ATM = root.ATM || {}).generator = factory(root.ATM.config, root.ATM.rng);
+})(typeof self !== 'undefined' ? self : this, function (config, rng) {
+  'use strict';
+
+  const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
+
+  function between(rand, range) {
+    return range[0] + rand() * (range[1] - range[0]);
+  }
+
+  function pickWeighted(rand, weights) {
+    const names = Object.keys(weights);
+    const total = names.reduce((sum, name) => sum + weights[name], 0);
+    let roll = rand() * total;
+    for (let i = 0; i < names.length; i += 1) {
+      roll -= weights[names[i]];
+      if (roll < 0) return names[i];
+    }
+    return names[names.length - 1];
+  }
+
+  /** One step of a bounded random walk pulled toward a centre value. */
+  function walk(rand, value, p) {
+    const pull = (p.center - value) * 0.18;
+    const noise = (rand() * 2 - 1) * p.maxStep;
+    return clamp(value + pull + noise, p.min, p.max);
+  }
+
+  /**
+   * Generate a run.
+   * scenario.params: { speed, glare, distance, weather: { weights, persistence }, events }
+   *   speed / glare / distance: { min, max, center, maxStep, start: [lo, hi] }
+   *   events: [{ at, speedKmh?, glarePct?, distanceM?, weather? }]  (ranges are [lo, hi])
+   */
+  function generateRun(seed, scenario, scans) {
+    const count = scans || config.scansPerRun;
+    const p = scenario.params;
+    const rand = rng.mulberry32(seed);
+
+    let speed = between(rand, p.speed.start);
+    let glare = between(rand, p.glare.start);
+    let distance = between(rand, p.distance.start);
+    let weather = pickWeighted(rand, p.weather.weights);
+
+    const events = {};
+    (p.events || []).forEach((e) => {
+      events[e.at] = e;
+    });
+
+    const samples = [];
+    for (let i = 0; i < count; i += 1) {
+      if (i > 0) {
+        speed = walk(rand, speed, p.speed);
+        glare = walk(rand, glare, p.glare);
+        distance = walk(rand, distance, p.distance);
+        if (rand() >= p.weather.persistence) weather = pickWeighted(rand, p.weather.weights);
+      }
+      const event = events[i];
+      if (event) {
+        if (event.speedKmh) speed = between(rand, event.speedKmh);
+        if (event.glarePct) glare = between(rand, event.glarePct);
+        if (event.distanceM) distance = between(rand, event.distanceM);
+        if (event.weather) weather = event.weather;
+      }
+      samples.push({
+        index: i,
+        label: 'T' + (i + 1),
+        speedKmh: Math.round(speed),
+        glarePct: Math.round(clamp(glare, 0, 100)),
+        distanceM: Math.max(5, Math.round(distance)),
+        weather: weather,
+      });
+    }
+    return samples;
+  }
+
+  return { generateRun: generateRun };
+});
+
+
+/* src/scenarios.js */
+/*
+ * scenarios.js
+ * Preset scenarios. Each has a fixed seed, so the first thing a visitor sees is
+ * a varied run: some safe scans, some warnings, at least one critical.
+ * `expectedMix` is the status count for the stock EV Sedan and is checked by the tests.
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else (root.ATM = root.ATM || {}).scenarios = factory();
+})(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  const list = [
+    {
+      id: 'highway-cruise',
+      name: 'Highway cruise',
+      tagline: '85–110 km/h, mostly clear, occasional glare spikes',
+      speedAlertKmh: 110, // speed rule warns at or above this speed in this scenario
+      seed: 2432,
+      expectedMix: { SAFE: 6, WARNING: 2, CRITICAL: 2 },
+      params: {
+        speed: { min: 84, max: 110, center: 94, maxStep: 7, start: [88, 98] },
+        glare: { min: 8, max: 85, center: 30, maxStep: 16, start: [18, 34] },
+        distance: { min: 70, max: 190, center: 125, maxStep: 30, start: [110, 160] },
+        weather: { weights: { Clear: 0.8, Fog: 0.1, 'Heavy Rain': 0.1 }, persistence: 0.8 },
+        events: [{ at: 6, distanceM: [38, 52] }],
+      },
+    },
+    {
+      id: 'rainy-city',
+      name: 'Rainy city',
+      tagline: '35–65 km/h, rain and fog, objects 10–80 m ahead',
+      speedAlertKmh: 60,
+      seed: 1295,
+      expectedMix: { SAFE: 5, WARNING: 3, CRITICAL: 2 },
+      params: {
+        speed: { min: 32, max: 70, center: 50, maxStep: 8, start: [44, 56] },
+        glare: { min: 8, max: 72, center: 34, maxStep: 14, start: [22, 40] },
+        distance: { min: 26, max: 100, center: 62, maxStep: 20, start: [55, 80] },
+        weather: { weights: { Clear: 0.2, Fog: 0.3, 'Heavy Rain': 0.5 }, persistence: 0.62 },
+        events: [{ at: 5, distanceM: [10, 15], weather: 'Heavy Rain' }],
+      },
+    },
+    {
+      id: 'emergency-braking',
+      name: 'Emergency braking',
+      tagline: 'An object appears 12 m ahead, then the car brakes',
+      speedAlertKmh: 60,
+      seed: 3003,
+      expectedMix: { SAFE: 7, WARNING: 1, CRITICAL: 2 },
+      params: {
+        speed: { min: 6, max: 72, center: 56, maxStep: 3, start: [52, 60] },
+        glare: { min: 8, max: 60, center: 26, maxStep: 8, start: [16, 30] },
+        distance: { min: 8, max: 110, center: 80, maxStep: 8, start: [76, 96] },
+        weather: { weights: { Clear: 0.55, Fog: 0.15, 'Heavy Rain': 0.3 }, persistence: 0.75 },
+        events: [
+          { at: 5, speedKmh: [62, 68], distanceM: [11, 14] },
+          { at: 6, speedKmh: [44, 48], distanceM: [14, 17] },
+          { at: 7, speedKmh: [28, 32], distanceM: [19, 23] },
+          { at: 8, speedKmh: [14, 18], distanceM: [26, 30] },
+          { at: 9, speedKmh: [6, 9], distanceM: [34, 40] },
+        ],
+      },
+    },
+  ];
+
+  const DEFAULT_ID = 'rainy-city';
+
+  function getScenario(id) {
+    return list.find((s) => s.id === id) || null;
+  }
+
+  return { list: list, DEFAULT_ID: DEFAULT_ID, getScenario: getScenario };
+});
+
+
+/* src/ui/icons.js */
+/*
+ * icons.js
+ * Small inline SVG icons. Status is always shown as icon + word, never colour alone.
+ * Shapes differ per status: circle (safe), triangle (warning), octagon (critical).
+ */
+(function (root) {
+  'use strict';
+
+  const attrs =
+    'viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" ' +
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"';
+  const svg = (inner) => '<svg ' + attrs + '>' + inner + '</svg>';
+
+  const status = {
+    SAFE: svg('<circle cx="8" cy="8" r="6.3"/><path d="M5.2 8.4l2 2 3.6-4.3"/>'),
+    WARNING: svg('<path d="M8 2.3l6.2 10.9H1.8z"/><path d="M8 6.5v3"/><path d="M8 11.3v.1"/>'),
+    CRITICAL: svg('<path d="M5.3 1.9h5.4l3.4 3.4v5.4l-3.4 3.4H5.3l-3.4-3.4V5.3z"/><path d="M8 4.8v3.6"/><path d="M8 10.8v.1"/>'),
+  };
+
+  const weather = {
+    Clear: svg(
+      '<circle cx="8" cy="8" r="2.8"/><path d="M8 1.6v1.6M8 12.8v1.6M1.6 8h1.6M12.8 8h1.6M3.5 3.5l1.1 1.1M11.4 11.4l1.1 1.1M3.5 12.5l1.1-1.1M11.4 4.6l1.1-1.1"/>'
+    ),
+    Fog: svg('<path d="M2 4.5h9M4.5 8h9.5M2 11.5h7M11 11.5h3"/>'),
+    'Heavy Rain': svg(
+      '<path d="M4.6 9.4a3 3 0 0 1 .4-5.9 4 4 0 0 1 7.5 1.2A2.4 2.4 0 0 1 12 9.4z"/><path d="M5 11.4l-.8 2.2M8.2 11.4l-.8 2.2M11.4 11.4l-.8 2.2"/>'
+    ),
+  };
+
+  (root.ATM = root.ATM || {}).icons = { status: status, weather: weather };
+})(window);
+
+
+/* src/ui/car-side.js */
+/*
+ * car-side.js
+ * Side view of a generic EV sedan. It is an original drawing: a low nose, a long raked
+ * windscreen that flows into one roof arc, a short fastback tail, flush door handles and
+ * slim lamps. It does not copy any real vehicle and carries no badge, logo or brand name.
+ *
+ * The drawing reacts to the run:
+ *   - the glow under the car takes the status colour (safe / warning / critical)
+ *   - tail lamps flare while the status is CRITICAL (braking)
+ *   - modifications show on the wheels: performance tires, red calipers, worn tires
+ *   - the wheels turn slowly while a run is playing
+ *   - headlight beams appear in fog and rain
+ */
+(function (root) {
+  'use strict';
+
+  const W = 470;
+  const VIEW_Y = 14;
+  const VIEW_H = 156;
+  const GROUND = 142;
+  const WHEEL_R = 28;
+  const WHEEL_Y = GROUND - WHEEL_R;
+  const REAR_X = 121;
+  const FRONT_X = 351;
+  const ARCH_R = 32;
+  const SILL_Y = 128;
+
+  // Wheel arches are cut out of the silhouette with arcs.
+  const archDx = Math.sqrt(ARCH_R * ARCH_R - Math.pow(SILL_Y - WHEEL_Y, 2));
+  const fa = [(FRONT_X + archDx).toFixed(1), (FRONT_X - archDx).toFixed(1)];
+  const ra = [(REAR_X + archDx).toFixed(1), (REAR_X - archDx).toFixed(1)];
+
+  const BODY =
+    'M66 ' + SILL_Y +
+    'C56 127.5 48.5 120 46.8 106C45.8 96 46.2 90 47.8 82C49 75 51 71 56 68.4' +
+    'C66 65.6 88 62.6 112 60.4' + // trunk lid
+    'C134 52 164 36 200 28.2' + // fastback glass
+    'C220 25.8 244 25.4 262 26.4' + // roof
+    'C286 28 306 42 332 61.5' + // windscreen
+    'C360 65 392 73.5 410 81.5' + // bonnet
+    'C419 85.5 424.6 92 425 100' + // nose
+    'C425.3 111 422 120 415 124.4C411 127 406 ' + SILL_Y + ' 400 ' + SILL_Y +
+    'L' + fa[0] + ' ' + SILL_Y + 'A' + ARCH_R + ' ' + ARCH_R + ' 0 1 0 ' + fa[1] + ' ' + SILL_Y +
+    'L' + ra[0] + ' ' + SILL_Y + 'A' + ARCH_R + ' ' + ARCH_R + ' 0 1 0 ' + ra[1] + ' ' + SILL_Y +
+    'L66 ' + SILL_Y + 'Z';
+
+  // Glass: rear window and front window, split by a dark B pillar.
+  const GLASS_REAR = 'M126 60.4C144 53.5 170 39.5 199 31.8L206 31.4L206 60.4Z';
+  const GLASS_FRONT = 'M214.4 60.4L213.6 31C229 29.8 246 29.6 261 30.4C281 32 301 44 322.5 60.4Z';
+
+  function polar(r, deg) {
+    const a = (deg * Math.PI) / 180;
+    return [r * Math.cos(a), r * Math.sin(a)];
+  }
+
+  // A slot between two angles and two radii, used for the wheel openings.
+  function slot(r0, r1, a0, a1) {
+    const p = (r, a) => polar(r, a).map((n) => n.toFixed(2)).join(' ');
+    return 'M' + p(r0, a0) + 'L' + p(r1, a0) + 'A' + r1 + ' ' + r1 + ' 0 0 1 ' + p(r1, a1) + 'L' + p(r0, a1) + 'A' + r0 + ' ' + r0 + ' 0 0 0 ' + p(r0, a0) + 'Z';
+  }
+
+  // The rim is one path: a disc with five openings cut out (even-odd), so the brake disc
+  // and caliper show through the openings.
+  const RIM_R = 20;
+  const RIM_PATH = (function () {
+    let d = 'M-' + RIM_R + ' 0A' + RIM_R + ' ' + RIM_R + ' 0 1 0 ' + RIM_R + ' 0A' + RIM_R + ' ' + RIM_R + ' 0 1 0 -' + RIM_R + ' 0Z';
+    for (let i = 0; i < 5; i += 1) d += slot(9.8, 17.4, i * 72 + 9, i * 72 + 51);
+    return d;
+  })();
+
+  function wheelMarkup(cx) {
+    return (
+      '<g class="wheelg" transform="translate(' + cx + ' ' + WHEEL_Y + ')">' +
+      '<circle class="tire" r="' + WHEEL_R + '"/>' +
+      '<circle class="tire-wall" r="24.8"/>' +
+      '<circle class="tire-wear" r="26.4"/>' +
+      '<circle class="disc" r="18"/>' +
+      '<path class="caliper" d="M-3.4 -15.2A15.6 15.6 0 0 1 13.2 -8.2"/>' +
+      '<g class="rimg">' +
+      '<path class="rim-face" fill-rule="evenodd" d="' + RIM_PATH + '"/>' +
+      '<path class="rim-sheen" fill-rule="evenodd" d="' + RIM_PATH + '"/>' +
+      '<circle class="rim-lip" r="' + RIM_R + '"/>' +
+      '<circle class="hub" r="4.4"/>' +
+      '</g>' +
+      '</g>'
+    );
+  }
+
+  function markup() {
+    const cx = W / 2;
+    return (
+      '<defs>' +
+      // paint: shoulder highlight, a dark horizon reflection, a lighter bounce near the sill
+      '<linearGradient id="sbBody" x1="0" x2="0" y1="0" y2="1">' +
+      '<stop offset="0" style="stop-color:var(--car-hi)"/><stop offset=".2" style="stop-color:var(--car-hi)"/>' +
+      '<stop offset=".34" style="stop-color:var(--car-mid)"/><stop offset=".47" style="stop-color:var(--car-horizon)"/>' +
+      '<stop offset=".62" style="stop-color:var(--car-mid)"/><stop offset=".86" style="stop-color:var(--car-lo)"/>' +
+      '<stop offset="1" style="stop-color:var(--car-lo)"/></linearGradient>' +
+      '<linearGradient id="sbSheen" x1="0" x2="1" y1="0" y2="0">' +
+      '<stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".26" stop-color="#fff" stop-opacity=".2"/>' +
+      '<stop offset=".48" stop-color="#fff" stop-opacity="0"/><stop offset=".78" stop-color="#fff" stop-opacity=".12"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>' +
+      '<linearGradient id="sbRocker" x1="0" x2="0" y1="0" y2="1">' +
+      '<stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".55"/></linearGradient>' +
+      '<linearGradient id="sbGlass" x1="0" x2="0" y1="0" y2="1">' +
+      '<stop offset="0" style="stop-color:var(--car-glass-hi)"/><stop offset="1" style="stop-color:var(--car-glass-lo)"/></linearGradient>' +
+      '<linearGradient id="sbReflect" x1="0" x2="1" y1="0" y2="0">' +
+      '<stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".2"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>' +
+      '<radialGradient id="sbGlow" cx=".5" cy=".5" r=".5">' +
+      '<stop offset="0" style="stop-color:var(--status)" stop-opacity=".62"/><stop offset=".6" style="stop-color:var(--status)" stop-opacity=".2"/><stop offset="1" style="stop-color:var(--status)" stop-opacity="0"/></radialGradient>' +
+      '<linearGradient id="sbBeam" x1="0" x2="1" y1="0" y2="0">' +
+      '<stop offset="0" style="stop-color:var(--car-lamp)" stop-opacity=".5"/><stop offset="1" style="stop-color:var(--car-lamp)" stop-opacity="0"/></linearGradient>' +
+      '<linearGradient id="sbRim" x1="0" x2="1" y1="0" y2="1">' +
+      '<stop offset="0" stop-color="#fff" stop-opacity=".6"/><stop offset=".55" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".25"/></linearGradient>' +
+      '<filter id="sbBlur" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="4"/></filter>' +
+      '<filter id="sbLampGlow" x="-60%" y="-120%" width="220%" height="340%"><feGaussianBlur stdDeviation="3"/></filter>' +
+      '<clipPath id="sbClip"><path d="' + BODY + '"/></clipPath>' +
+      '</defs>' +
+      // ground: glow, shadow, road line
+      '<ellipse class="car-glow" cx="' + (cx + 2) + '" cy="' + (GROUND + 3) + '" rx="214" ry="18" fill="url(#sbGlow)"/>' +
+      '<ellipse class="car-floor" cx="' + (cx + 2) + '" cy="' + (GROUND + 1) + '" rx="176" ry="5.5" filter="url(#sbBlur)"/>' +
+      '<line class="car-ground" x1="8" x2="' + (W - 8) + '" y1="' + (GROUND + 0.5) + '" y2="' + (GROUND + 0.5) + '"/>' +
+      // headlight beam (fog and rain)
+      '<path class="car-beam" d="M418 84L' + W + ' 56L' + W + ' 116L418 90Z" fill="url(#sbBeam)"/>' +
+      '<ellipse class="tail-spill" cx="38" cy="82" rx="44" ry="20" filter="url(#sbBlur)"/>' +
+      '<g id="carBody">' +
+      // wheel wells and wheels sit behind the body so the arches frame them
+      '<circle class="arch" cx="' + REAR_X + '" cy="' + WHEEL_Y + '" r="' + ARCH_R + '"/>' +
+      '<circle class="arch" cx="' + FRONT_X + '" cy="' + WHEEL_Y + '" r="' + ARCH_R + '"/>' +
+      wheelMarkup(REAR_X) +
+      wheelMarkup(FRONT_X) +
+      // body
+      '<path class="body" d="' + BODY + '"/>' +
+      '<g clip-path="url(#sbClip)">' +
+      '<rect x="40" y="58" width="390" height="74" fill="url(#sbSheen)"/>' +
+      '<rect x="40" y="110" width="390" height="24" fill="url(#sbRocker)"/>' +
+      '<path class="crease-hi" d="M54 70.4C118 63.6 250 61.6 330 63.8C362 66 392 74 417 85.6"/>' +
+      '<path class="crease-lo" d="M150 108C200 100.6 288 98.6 322 104"/>' +
+      '<path class="sill-line" d="M62 120.4L88 120.4M155 120.4L318 120.4M385 120.4L410 120.4"/>' +
+      '</g>' +
+      '<path class="body-edge" d="' + BODY + '"/>' +
+      // glass roof and windows
+      '<path class="glass" d="' + GLASS_REAR + '"/>' +
+      '<path class="glass" d="' + GLASS_FRONT + '"/>' +
+      '<path class="pillar" d="M206 31.4L213.6 31L214.4 60.4L206 60.4Z"/>' +
+      '<g clip-path="url(#sbClip)"><path class="reflect" d="M150 59L186 36L202 33L172 60Z"/><path class="reflect" d="M236 59L262 33L278 35L266 59Z"/></g>' +
+      '<path class="glass-edge" d="M126 60.4C144 53.5 170 39.5 199 31.8M213.6 31C229 29.8 246 29.6 261 30.4C281 32 301 44 322.5 60.4"/>' +
+      // door seams and handles
+      '<path class="seam" d="M210 61L210 121M316 66C318.4 86 318.4 106 314 122M140 63C138 84 137 102 135 119"/>' +
+      '<rect class="handle" x="150" y="68.6" width="17" height="3.4" rx="1.7"/>' +
+      '<rect class="handle" x="226" y="67.8" width="17" height="3.4" rx="1.7"/>' +
+      // mirror
+      '<path class="mirror" d="M316 61.2L331 60.4C335 60.3 336.2 63.8 333 65.4L320 67.6Z"/>' +
+      // lamps
+      '<path class="lamp-glow" d="M394 78.6L417.5 85.6C419.6 86.3 419 88.6 417 88.4L396 82.4Z" filter="url(#sbLampGlow)"/>' +
+      '<path class="lamp-head" d="M394 78.6L417.5 85.6C419.6 86.3 419 88.6 417 88.4L396 82.4Z"/>' +
+      '<path class="lamp-glow lamp-tail-glow" d="M48.4 86C47.4 78 50.6 72.4 56.6 69.6L84 64" filter="url(#sbLampGlow)"/>' +
+      '<path class="lamp-tail" d="M48.4 86C47.4 78 50.6 72.4 56.6 69.6L84 64"/>' +
+      '<path class="splitter" d="M417 109.6L424.8 107.8L424.8 113L418.4 115.2Z"/>' +
+      '<path class="trunk-lip" d="M58 69C72 66 92 63.4 110 61.4"/>' +
+      '</g>'
+    );
+  }
+
+  function create(svg) {
+    svg.setAttribute('viewBox', '0 ' + VIEW_Y + ' ' + W + ' ' + VIEW_H);
+    svg.innerHTML = markup();
+    const body = svg.querySelector('#carBody');
+
+    /* view: { status: 'SAFE'|'WARNING'|'CRITICAL'|null, mods: [], weather, speedKmh, playing } */
+    function update(view) {
+      const status = view.status ? view.status.toLowerCase() : 'idle';
+      svg.dataset.status = status;
+      svg.dataset.weather = view.weather === 'Heavy Rain' ? 'rain' : view.weather === 'Fog' ? 'fog' : 'clear';
+      svg.dataset.moving = view.playing && view.speedKmh > 0 ? 'true' : 'false';
+      svg.style.setProperty('--spin-dur', Math.max(0.9, 7 - view.speedKmh / 20).toFixed(2) + 's');
+      const mods = view.mods || [];
+      body.classList.toggle('mod-perf', mods.indexOf('performanceTires') !== -1);
+      body.classList.toggle('mod-worn', mods.indexOf('wornTires') !== -1);
+      body.classList.toggle('mod-brakes', mods.indexOf('upgradedBrakes') !== -1);
+      svg.classList.toggle('is-braking', status === 'critical');
+    }
+
+    return { update: update };
+  }
+
+  (root.ATM = root.ATM || {}).carSide = { create: create };
+})(window);
+
+
+/* src/ui/road-view.js */
+/*
+ * road-view.js
+ * Top-down view of a generic EV sedan, the road ahead, the object detected by the
+ * sensors, and the stopping-distance zones.
+ *
+ * The car is an original generic design. It does not copy any real vehicle or brand.
+ * Distances use a compressed (square-root) scale so that both 10 m and 200 m fit.
+ * The scale ticks on the road show the real distances.
+ */
+(function (root) {
+  'use strict';
+
+  const W = 400;
+  const H = 600;
+  const NOSE_Y = 440; // y of the car's nose
+  const CAR_X = 200; // centre line of the ego lane
+  const TOP_Y = 40; // y of the farthest distance shown
+  const MAX_M = 200;
+  const K = (NOSE_Y - TOP_Y) / Math.sqrt(MAX_M);
+  const TICKS = [10, 25, 50, 100, 150]; // 200 m is the top edge and would sit under the chips
+  const OBJECT_LEN = 52;
+  const OBJECT_W = 44;
+  const CORRIDOR_X = 160;
+  const CORRIDOR_W = 80;
+
+  const yAt = (m) => NOSE_Y - K * Math.sqrt(Math.max(0, Math.min(m, MAX_M)));
+  const f1 = (n) => n.toFixed(1);
+
+  const reduceMotion = () =>
+    typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* Car outline, nose at y=0, tail at y=125, centred on x=0. 1 unit is about 3.8 cm. */
+  const BODY =
+    'M0 0C9 0 19 2 24 9C27 14 28.5 22 29 32L29.5 62C29.5 78 29 92 27.5 104C26 114 21 122 13 124C8 125 4 125 0 125' +
+    'C-4 125 -8 125 -13 124C-21 122 -26 114 -27.5 104C-29 92 -29.5 78 -29.5 62L-29 32C-28.5 22 -27 14 -24 9C-19 2 -9 0 0 0Z';
+
+  function carMarkup() {
+    return (
+      '<g class="car" id="car" transform="translate(' + CAR_X + ' ' + NOSE_Y + ')">' +
+      // soft ground shadow
+      '<path class="car-shadow" d="' + BODY + '" transform="translate(2 4)" filter="url(#blur4)"/>' +
+      // wheels sit under the body so only the outer edge shows
+      '<g class="wheels">' +
+      [[-1, 25], [1, 25], [-1, 101], [1, 101]]
+        .map(function (w) {
+          const x = w[0] * 29;
+          return (
+            '<rect class="wheel" x="' + (x - 3.25) + '" y="' + (w[1] - 8.5) + '" width="6.5" height="17" rx="2.4"/>' +
+            '<rect class="caliper" x="' + (w[0] > 0 ? x + 3.4 : x - 4.6) + '" y="' + (w[1] - 5) + '" width="1.2" height="10" rx=".6"/>'
+          );
+        })
+        .join('') +
+      '</g>' +
+      '<path class="car-body" d="' + BODY + '"/>' +
+      // hood creases
+      '<path class="car-line" d="M-9 4C-12 14-13 24-13 34M9 4C12 14 13 24 13 34"/>' +
+      // twin gold stripes on the bonnet and the boot lid
+      '<path class="car-stripe" d="M-2.4 6L-2.4 33M2.4 6L2.4 33M-2.4 107L-2.4 117M2.4 107L2.4 117"/>' +
+      // side mirrors
+      '<rect class="car-mirror" x="28.4" y="43" width="5.6" height="6.4" rx="2.2"/>' +
+      '<rect class="car-mirror" x="-34" y="43" width="5.6" height="6.4" rx="2.2"/>' +
+      // glass: windshield, glass roof, rear window
+      '<path class="car-glass" d="M-18 52L-15 39Q0 34.5 15 39L18 52Q0 47.5-18 52Z"/>' +
+      '<path class="car-roof" d="M-18.5 53Q0 49 18.5 53L18.5 88Q0 91.5-18.5 88Z"/>' +
+      '<path class="car-glass" d="M-18.5 89.5Q0 93 18.5 89.5L16 101Q0 105-16 101Z"/>' +
+      '<path class="car-glint" d="M-12 56L-4 56L-12 80Z"/>' +
+      // front camera and radar
+      '<circle class="car-camera-ring" cx="0" cy="40.5" r="3.4"/><circle class="car-camera" cx="0" cy="40.5" r="1.6"/>' +
+      '<rect class="car-radar" x="-7" y="1.2" width="14" height="2.4" rx="1.2"/>' +
+      // lights
+      '<path class="light-head" d="M9.5 2.6Q18 3 23 9M-9.5 2.6Q-18 3-23 9"/>' +
+      '<path class="light-tail" d="M-20 120.6Q0 124.4 20 120.6"/>' +
+      '</g>'
+    );
+  }
+
+  function objectMarkup() {
+    // A generic stopped vehicle seen from behind and above. Its rear edge sits at y=0.
+    const x = -OBJECT_W / 2;
+    const y = -OBJECT_LEN;
+    return (
+      '<g class="object" id="object">' +
+      '<rect class="object-body" x="' + x + '" y="' + y + '" width="' + OBJECT_W + '" height="' + OBJECT_LEN + '" rx="10"/>' +
+      '<path class="object-glass" d="M-14 -11L14 -11L12 -28L-12 -28Z"/>' +
+      '<rect class="object-hazard" x="-19" y="-5" width="7" height="3.4" rx="1.4"/>' +
+      '<rect class="object-hazard" x="12" y="-5" width="7" height="3.4" rx="1.4"/>' +
+      '</g>'
+    );
+  }
+
+  function ticksMarkup() {
+    return TICKS.map(function (m) {
+      const y = yAt(m);
+      return (
+        '<line class="tick-line" x1="22" x2="378" y1="' + y + '" y2="' + y + '"/>' +
+        '<text class="tick-text" x="30" y="' + (y - 5) + '">' + m + ' m</text>'
+      );
+    }).join('');
+  }
+
+  function build(svg) {
+    const coneHalf = 150;
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.innerHTML =
+      '<defs>' +
+      '<linearGradient id="gBody" x1="0" x2="1" y1="0" y2="0">' +
+      '<stop offset="0" style="stop-color:var(--car-lo)"/><stop offset=".32" style="stop-color:var(--car-hi)"/>' +
+      '<stop offset=".68" style="stop-color:var(--car-hi)"/><stop offset="1" style="stop-color:var(--car-lo)"/></linearGradient>' +
+      '<linearGradient id="gCone" x1="0" x2="0" y1="1" y2="0">' +
+      '<stop offset="0" style="stop-color:var(--accent);stop-opacity:.26"/><stop offset="1" style="stop-color:var(--accent);stop-opacity:0"/></linearGradient>' +
+      '<linearGradient id="gFog" x1="0" x2="0" y1="0" y2="1">' +
+      '<stop offset="0" style="stop-color:var(--fx-fog);stop-opacity:.92"/><stop offset=".55" style="stop-color:var(--fx-fog);stop-opacity:.42"/>' +
+      '<stop offset="1" style="stop-color:var(--fx-fog);stop-opacity:0"/></linearGradient>' +
+      '<radialGradient id="gGlare" cx=".5" cy=".5" r=".5">' +
+      '<stop offset="0" style="stop-color:var(--glare-color);stop-opacity:1"/><stop offset=".45" style="stop-color:var(--glare-color);stop-opacity:.45"/>' +
+      '<stop offset="1" style="stop-color:var(--glare-color);stop-opacity:0"/></radialGradient>' +
+      '<pattern id="pHatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">' +
+      '<line x1="0" y1="0" x2="0" y2="7" style="stroke:var(--crit);stroke-width:2.2;stroke-opacity:.55"/></pattern>' +
+      '<pattern id="pRain" width="46" height="70" patternUnits="userSpaceOnUse" patternTransform="rotate(14)">' +
+      '<line x1="6" y1="4" x2="6" y2="26"/><line x1="30" y1="34" x2="30" y2="58"/><line x1="18" y1="48" x2="18" y2="62"/></pattern>' +
+      '<filter id="blur4" x="-20%" y="-10%" width="140%" height="120%"><feGaussianBlur stdDeviation="4"/></filter>' +
+      '<clipPath id="clipView"><rect width="' + W + '" height="' + H + '" rx="0"/></clipPath>' +
+      '</defs>' +
+      '<g clip-path="url(#clipView)">' +
+      '<rect class="shoulder" width="' + W + '" height="' + H + '"/>' +
+      '<rect class="road" x="22" y="0" width="356" height="' + H + '"/>' +
+      '<line class="road-edge" x1="22" x2="22" y1="0" y2="' + H + '"/><line class="road-edge" x1="378" x2="378" y1="0" y2="' + H + '"/>' +
+      '<line class="lane-dash" id="laneL" x1="140" x2="140" y1="-60" y2="' + (H + 60) + '"/>' +
+      '<line class="lane-dash" id="laneR" x1="260" x2="260" y1="-60" y2="' + (H + 60) + '"/>' +
+      ticksMarkup() +
+      '<polygon class="cone" points="' + CAR_X + ',' + NOSE_Y + ' ' + (CAR_X - coneHalf) + ',' + TOP_Y + ' ' + (CAR_X + coneHalf) + ',' + TOP_Y + '"/>' +
+      // stopping-distance zones: warning band, braking, reaction
+      '<rect class="zone zone-warn" id="zWarn" x="' + CORRIDOR_X + '" width="' + CORRIDOR_W + '"/>' +
+      '<rect class="zone zone-brake" id="zBrake" x="' + CORRIDOR_X + '" width="' + CORRIDOR_W + '"/>' +
+      '<rect class="zone zone-react" id="zReact" x="' + CORRIDOR_X + '" width="' + CORRIDOR_W + '"/>' +
+      '<line class="measure" id="measure" x1="' + CAR_X + '" x2="' + CAR_X + '" y1="' + NOSE_Y + '"/>' +
+      // fog sits behind the object and the car so both stay readable
+      '<rect class="fx-fog" width="' + W + '" height="330" fill="url(#gFog)"/>' +
+      objectMarkup() +
+      carMarkup() +
+      '<g class="fx-rain"><rect class="fx-rain-rect" x="-60" y="-70" width="520" height="' + (H + 140) + '" fill="url(#pRain)"/></g>' +
+      '<circle class="fx-glare" id="glare" cx="338" cy="46" r="190" fill="url(#gGlare)"/>' +
+      // zone labels
+      '<g id="lblStop" class="zlabel"><rect class="zlabel-key zk-brake" width="9" height="9" rx="2"/><text class="zlabel-text" x="14" y="8.5"></text></g>' +
+      '<g id="lblWarn" class="zlabel"><rect class="zlabel-key zk-warn" width="9" height="9" rx="2"/><text class="zlabel-text" x="14" y="8.5"></text></g>' +
+      '<g id="lblObj" class="olabel"><text class="olabel-name" text-anchor="end" x="0" y="0">OBJECT</text><text class="olabel-value" text-anchor="end" x="0" y="15"></text></g>' +
+      // readout chips
+      '<g id="chipWeather" class="chip" transform="translate(32 26)"><rect class="chip-bg" height="24" rx="12"/><text class="chip-text" x="12" y="16"></text></g>' +
+      '<g id="chipGlare" class="chip" transform="translate(300 26)"><rect class="chip-bg" height="24" rx="12"/><text class="chip-text" x="12" y="16"></text></g>' +
+      '<text class="car-caption" id="caption" x="' + CAR_X + '" y="588" text-anchor="middle"></text>' +
+      '</g>';
+  }
+
+  function create(svg) {
+    build(svg);
+    const $ = (id) => svg.querySelector('#' + id);
+    const el = {
+      car: $('car'),
+      object: $('object'),
+      measure: $('measure'),
+      zWarn: $('zWarn'),
+      zBrake: $('zBrake'),
+      zReact: $('zReact'),
+      lblStop: $('lblStop'),
+      lblWarn: $('lblWarn'),
+      lblObj: $('lblObj'),
+      glare: $('glare'),
+      chipWeather: $('chipWeather'),
+      chipGlare: $('chipGlare'),
+      caption: $('caption'),
+    };
+
+    let current = null; // values currently painted (metres)
+    let frame = 0;
+    let first = true;
+
+    function setChip(g, text) {
+      const t = g.querySelector('text');
+      t.textContent = text;
+      g.querySelector('rect').setAttribute('width', Math.round(text.length * 6.9 + 24));
+    }
+
+    /* Paint distances (metres) to the SVG. */
+    function paint(v) {
+      const yObj = yAt(v.obj);
+      el.object.setAttribute('transform', 'translate(' + CAR_X + ' ' + yObj + ')');
+      el.measure.setAttribute('y2', yObj);
+
+      const yReact = yAt(v.reaction);
+      const yStop = yAt(v.stop);
+      const yWarn = yAt(v.warn);
+      el.zReact.setAttribute('y', yReact);
+      el.zReact.setAttribute('height', Math.max(0, NOSE_Y - yReact));
+      el.zBrake.setAttribute('y', yStop);
+      el.zBrake.setAttribute('height', Math.max(0, yReact - yStop));
+      el.zWarn.setAttribute('y', yWarn);
+      el.zWarn.setAttribute('height', Math.max(0, yStop - yWarn));
+
+      const stopLabelY = Math.max(yStop, 70);
+      const warnLabelY = Math.max(Math.min(yWarn, stopLabelY - 17), 52);
+      el.lblStop.setAttribute('transform', 'translate(' + (CORRIDOR_X + CORRIDOR_W + 8) + ' ' + (stopLabelY - 5) + ')');
+      el.lblWarn.setAttribute('transform', 'translate(' + (CORRIDOR_X + CORRIDOR_W + 8) + ' ' + (warnLabelY - 5) + ')');
+      el.lblObj.setAttribute('transform', 'translate(' + (CORRIDOR_X - 10) + ' ' + (yObj - OBJECT_LEN / 2 - 8) + ')');
+    }
+
+    function tween(target) {
+      cancelAnimationFrame(frame);
+      if (first || reduceMotion() || !current) {
+        current = Object.assign({}, target);
+        paint(current);
+        return;
+      }
+      const from = Object.assign({}, current);
+      const t0 = performance.now();
+      const dur = 520;
+      (function step(now) {
+        const p = Math.min(1, (now - t0) / dur);
+        const e = 1 - Math.pow(1 - p, 3);
+        const v = {};
+        Object.keys(target).forEach(function (k) {
+          v[k] = from[k] + (target[k] - from[k]) * e;
+        });
+        current = v;
+        paint(v);
+        if (p < 1) frame = requestAnimationFrame(step);
+      })(t0);
+    }
+
+    /**
+     * view: { speedKmh, glarePct, distanceM, weather, status, reactionM, stopM, warnM,
+     *         vehicle: { mu, brakeEfficiency, mods[] }, playing }
+     */
+    function update(view) {
+      const weather = view.weather === 'Heavy Rain' ? 'rain' : view.weather === 'Fog' ? 'fog' : 'clear';
+      const relation = view.distanceM < view.stopM ? 'inside' : view.distanceM < view.warnM ? 'near' : 'clear';
+      svg.dataset.weather = weather;
+      svg.dataset.status = view.status.toLowerCase();
+      svg.dataset.relation = relation;
+      svg.dataset.playing = view.playing ? 'true' : 'false';
+
+      // lane markings scroll faster at higher speed (only while a run is playing)
+      const pxPerS = Math.max(8, view.speedKmh * 1.6);
+      svg.style.setProperty('--scroll-dur', (48 / pxPerS).toFixed(3) + 's');
+      svg.dataset.moving = view.speedKmh > 0 ? 'true' : 'false';
+
+      // modifications are visible on the car
+      const mods = view.vehicle.mods;
+      el.car.classList.toggle('mod-perf', mods.indexOf('performanceTires') !== -1);
+      el.car.classList.toggle('mod-worn', mods.indexOf('wornTires') !== -1);
+      el.car.classList.toggle('mod-brakes', mods.indexOf('upgradedBrakes') !== -1);
+      el.car.classList.toggle('braking', view.status === 'CRITICAL');
+
+      // glare overlay strength follows the camera glare value
+      el.glare.style.opacity = String(Math.min(0.9, (view.glarePct / 100) * 0.95));
+
+      el.lblStop.querySelector('text').textContent = 'Stop ' + f1(view.stopM) + ' m';
+      el.lblWarn.querySelector('text').textContent = '1.5× ' + f1(view.warnM) + ' m';
+      el.lblObj.querySelector('.olabel-value').textContent = view.distanceM + ' m';
+
+      setChip(el.chipWeather, view.weather);
+      setChip(el.chipGlare, 'Glare ' + view.glarePct + '%');
+      const glareW = Number(el.chipGlare.querySelector('rect').getAttribute('width'));
+      el.chipGlare.setAttribute('transform', 'translate(' + (W - 32 - glareW) + ' 26)');
+
+      el.caption.textContent =
+        view.vehicle.name + '  ·  μ ' + view.vehicle.mu.toFixed(2) + '  ·  brakes ' + view.vehicle.brakeEfficiency.toFixed(2);
+
+      tween({ obj: view.distanceM, reaction: view.reactionM, stop: view.stopM, warn: view.warnM });
+      first = false;
+    }
+
+    return { update: update };
+  }
+
+  (root.ATM = root.ATM || {}).roadView = { create: create };
+})(window);
+
+
+/* src/ui/charts.js */
+/*
+ * charts.js
+ * Two small line charts that share one X axis (scan T1..T10): speed and camera glare.
+ * They have different units, so each gets its own Y axis instead of sharing a dual axis.
+ * Hovering or focusing a scan shows one tooltip and a crosshair on both charts.
+ */
+(function (root) {
+  'use strict';
+
+  const ATM = root.ATM;
+  const config = ATM.config;
+
+  const PAD = { left: 48, right: 20, top: 14 };
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+
+  const DEFS = [
+    {
+      key: 'speedKmh',
+      title: 'Speed',
+      unit: 'km/h',
+      max: 120,
+      step: 30,
+      color: 'var(--series-speed)',
+      ref: { value: config.thresholds.speedWarningKmh, label: 'Alert at ' + config.thresholds.speedWarningKmh + ' km/h' },
+      height: 150,
+      bottom: 12,
+    },
+    {
+      key: 'glarePct',
+      title: 'Camera glare',
+      unit: '%',
+      max: 100,
+      step: 20,
+      color: 'var(--series-glare)',
+      ref: { value: config.thresholds.glareWarningPct, label: 'Alert at ' + config.thresholds.glareWarningPct + '%' },
+      height: 178,
+      bottom: 40,
+    },
+  ];
+
+  function el(name, attrs, text) {
+    const node = document.createElementNS(SVG_NS, name);
+    Object.keys(attrs || {}).forEach((k) => node.setAttribute(k, attrs[k]));
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  /* True when the polyline through pts passes through the box [x0,x1] x [y0,y1] (marker radius included). */
+  function crossesBox(pts, x0, x1, y0, y1) {
+    for (let i = 0; i < pts.length; i += 1) {
+      const a = pts[i];
+      const b = pts[i + 1] || a;
+      const lo = Math.max(x0, Math.min(a[0], b[0]));
+      const hi = Math.min(x1, Math.max(a[0], b[0]));
+      if (lo > hi) continue;
+      const at = (x) => (b[0] === a[0] ? a[1] : a[1] + ((b[1] - a[1]) * (x - a[0])) / (b[0] - a[0]));
+      const top = Math.min(at(lo), at(hi)) - 5;
+      const bottom = Math.max(at(lo), at(hi)) + 5;
+      if (bottom >= y0 && top <= y1) return true;
+    }
+    return false;
+  }
+
+  /*
+   * Where to write the alert label. It prefers above the line on the right, then above on the
+   * left, then below on the right and left, and takes the first spot the data line does not cross.
+   */
+  function placeRefLabel(pts, lineY, width, avoidX) {
+    const LABEL_W = 118;
+    const right = width - PAD.right - 4;
+    const left = PAD.left + 4;
+    const spots = [
+      { x: right, anchor: 'end', y: lineY - 6, box: [right - LABEL_W, right, lineY - 19, lineY - 1] },
+      { x: left, anchor: 'start', y: lineY - 6, box: [left, left + LABEL_W, lineY - 19, lineY - 1] },
+      { x: right, anchor: 'end', y: lineY + 16, box: [right - LABEL_W, right, lineY + 3, lineY + 21] },
+      { x: left, anchor: 'start', y: lineY + 16, box: [left, left + LABEL_W, lineY + 3, lineY + 21] },
+    ];
+    // the selected-scan crosshair is a vertical line, so a label it would strike through is skipped too
+    const struck = (s) => typeof avoidX === 'number' && avoidX >= s.box[0] - 2 && avoidX <= s.box[1] + 2;
+    const free = spots.find((s) => !struck(s) && !crossesBox(pts, s.box[0], s.box[1], s.box[2], s.box[3]));
+    return free || spots.find((s) => !struck(s)) || spots[0];
+  }
+
+  function create(host, handlers) {
+    host.textContent = '';
+    const cards = DEFS.map(function (def) {
+      const wrap = document.createElement('figure');
+      wrap.className = 'chart';
+      const cap = document.createElement('figcaption');
+      cap.className = 'chart__title';
+      const name = document.createElement('span');
+      name.textContent = def.title;
+      const unit = document.createElement('span');
+      unit.className = 'chart__unit';
+      unit.textContent = def.unit;
+      cap.append(name, unit);
+      const svg = el('svg', { class: 'chart__svg', role: 'group', 'aria-label': def.title + ' by scan' });
+      wrap.append(cap, svg);
+      host.append(wrap);
+      return { def: def, wrap: wrap, svg: svg };
+    });
+
+    const tip = document.createElement('div');
+    tip.className = 'tip';
+    tip.hidden = true;
+    tip.setAttribute('role', 'presentation');
+    host.append(tip);
+
+    let last = null; // last render arguments, reused on resize
+    let hoverIndex = -1;
+
+    function showTip(index, cx, wrapEl) {
+      const scan = last && last.scans[index];
+      if (!scan) return hideTip();
+      tip.textContent = '';
+      const head = document.createElement('div');
+      head.className = 'tip__head';
+      const badge = document.createElement('span');
+      badge.className = 'badge badge--' + scan.status.toLowerCase();
+      badge.innerHTML = ATM.icons.status[scan.status];
+      badge.append(document.createTextNode(scan.status));
+      const label = document.createElement('span');
+      label.className = 'tip__scan';
+      label.textContent = scan.label;
+      head.append(label, badge);
+      tip.append(head);
+
+      [
+        ['var(--series-speed)', scan.speedKmh + ' km/h', 'Speed'],
+        ['var(--series-glare)', scan.glarePct + '%', 'Camera glare'],
+      ].forEach(function (r) {
+        const row = document.createElement('div');
+        row.className = 'tip__row';
+        const key = document.createElement('span');
+        key.className = 'tip__key';
+        key.style.background = r[0];
+        const val = document.createElement('strong');
+        val.textContent = r[1];
+        const nm = document.createElement('span');
+        nm.className = 'tip__name';
+        nm.textContent = r[2];
+        row.append(key, val, nm);
+        tip.append(row);
+      });
+      const extra = document.createElement('div');
+      extra.className = 'tip__extra';
+      extra.textContent = 'Object ' + scan.distanceM + ' m · stop ' + scan.stoppingDistanceM.toFixed(1) + ' m · ' + scan.weather;
+      tip.append(extra);
+
+      tip.hidden = false;
+      const hostBox = host.getBoundingClientRect();
+      const wrapBox = wrapEl.getBoundingClientRect();
+      const tipW = tip.offsetWidth;
+      let left = wrapBox.left - hostBox.left + cx + 16;
+      if (left + tipW > hostBox.width - 4) left = wrapBox.left - hostBox.left + cx - tipW - 16;
+      tip.style.left = Math.max(4, left) + 'px';
+      tip.style.top = wrapBox.top - hostBox.top + 28 + 'px';
+    }
+
+    function hideTip() {
+      tip.hidden = true;
+    }
+
+    function setHover(index, cx, wrapEl) {
+      hoverIndex = index;
+      moveHoverLines();
+      if (index >= 0) showTip(index, cx, wrapEl);
+      else hideTip();
+    }
+
+    /* Move the light crosshair on both charts without rebuilding them (rebuilding would drop pointer and focus). */
+    function moveHoverLines() {
+      cards.forEach(function (card) {
+        if (!card.hoverLine) return;
+        const show = hoverIndex >= 0 && last && hoverIndex < last.scans.length && hoverIndex !== last.selected;
+        card.hoverLine.style.visibility = show ? 'visible' : 'hidden';
+        if (show) {
+          const cx = card.xOf(hoverIndex);
+          card.hoverLine.setAttribute('x1', cx);
+          card.hoverLine.setAttribute('x2', cx);
+        }
+      });
+    }
+
+    function draw() {
+      if (!last) return;
+      const scans = last.scans;
+      const total = last.total;
+      const selected = last.selected;
+      const width = Math.max(280, host.clientWidth);
+
+      // remember which column has keyboard focus so a rebuild does not lose it
+      const active = document.activeElement;
+      const focusKey =
+        active && active.classList && active.classList.contains('g-hit') && host.contains(active)
+          ? { chart: active.getAttribute('data-chart'), i: Number(active.getAttribute('data-i')) }
+          : null;
+
+      cards.forEach(function (card) {
+        const def = card.def;
+        const svg = card.svg;
+        const H = def.height;
+        const plotW = width - PAD.left - PAD.right;
+        const plotH = H - PAD.top - def.bottom;
+        const band = plotW / total;
+        const x = (i) => PAD.left + band * (i + 0.5);
+        const y = (v) => PAD.top + plotH * (1 - v / def.max);
+
+        svg.textContent = '';
+        svg.setAttribute('viewBox', '0 0 ' + width + ' ' + H);
+        svg.setAttribute('width', width);
+        svg.setAttribute('height', H);
+
+        // grid and Y ticks
+        for (let t = 0; t <= def.max; t += def.step) {
+          svg.append(el('line', { class: 'g-grid', x1: PAD.left, x2: width - PAD.right, y1: y(t), y2: y(t) }));
+          svg.append(el('text', { class: 'g-tick', x: PAD.left - 10, y: y(t) + 4, 'text-anchor': 'end' }, String(t)));
+        }
+
+        // X labels on the bottom chart only (both share the same columns)
+        if (def.bottom > 20) {
+          for (let i = 0; i < total; i += 1) {
+            const s = scans[i];
+            const cls = 'g-xlabel' + (i === selected ? ' is-selected' : '') + (s ? '' : ' is-pending');
+            svg.append(el('text', { class: cls, x: x(i), y: H - def.bottom + 22, 'text-anchor': 'middle' }, 'T' + (i + 1)));
+          }
+        }
+
+        // alert threshold (the speed alert is set per scenario)
+        const ref =
+          def.key === 'speedKmh' && typeof last.speedAlertKmh === 'number'
+            ? { value: last.speedAlertKmh, label: 'Alert at ' + last.speedAlertKmh + ' km/h' }
+            : def.ref;
+        svg.append(el('line', { class: 'g-ref', x1: PAD.left, x2: width - PAD.right, y1: y(ref.value), y2: y(ref.value) }));
+        // place the label against the whole run, so it does not jump sides while scans arrive
+        const fullRun = (last.all || scans).map((s, i) => [x(i), y(s[def.key])]);
+        const spot = placeRefLabel(fullRun, y(ref.value), width, selected >= 0 && selected < scans.length ? x(selected) : undefined);
+        svg.append(el('text', { class: 'g-reflabel', x: spot.x, y: spot.y, 'text-anchor': spot.anchor }, ref.label));
+
+        // crosshairs: the selected scan (solid) and, separately, the hovered scan (lighter)
+        if (selected >= 0 && selected < scans.length) {
+          svg.append(el('line', { class: 'g-cross is-selected', x1: x(selected), x2: x(selected), y1: PAD.top, y2: PAD.top + plotH }));
+        }
+        card.hoverLine = el('line', { class: 'g-cross', x1: 0, x2: 0, y1: PAD.top, y2: PAD.top + plotH });
+        card.hoverLine.style.visibility = 'hidden';
+        card.xOf = x;
+        svg.append(card.hoverLine);
+
+        // series: area wash, line, markers
+        if (scans.length) {
+          const pts = scans.map((s, i) => [x(i), y(s[def.key])]);
+          const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('');
+          const base = PAD.top + plotH;
+          svg.append(
+            el('path', {
+              class: 'g-area',
+              d: line + 'L' + pts[pts.length - 1][0].toFixed(1) + ' ' + base + 'L' + pts[0][0].toFixed(1) + ' ' + base + 'Z',
+              style: 'fill:' + def.color,
+            })
+          );
+          svg.append(el('path', { class: 'g-line', d: line, style: 'stroke:' + def.color }));
+          pts.forEach(function (p, i) {
+            const isSel = i === selected;
+            svg.append(
+              el('circle', { class: 'g-dot' + (isSel ? ' is-selected' : ''), cx: p[0], cy: p[1], r: isSel ? 6 : 4.5, style: 'fill:' + def.color })
+            );
+          });
+          // label only the selected point
+          if (selected >= 0 && selected < pts.length) {
+            const sel = pts[selected];
+            const value = scans[selected][def.key] + (def.unit === '%' ? '%' : '');
+            const above = sel[1] - PAD.top > 26;
+            svg.append(
+              el('text', { class: 'g-value', x: sel[0], y: above ? sel[1] - 13 : sel[1] + 22, 'text-anchor': 'middle' }, value)
+            );
+          }
+        }
+
+        // hit columns: pointer, focus, click and keyboard
+        for (let i = 0; i < total; i += 1) {
+          const s = scans[i];
+          if (!s) continue;
+          const col = el('rect', {
+            class: 'g-hit',
+            x: x(i) - band / 2,
+            y: PAD.top - 6,
+            width: band,
+            height: plotH + 12,
+            tabindex: 0,
+            role: 'button',
+            'data-chart': def.key,
+            'data-i': i,
+            'aria-label':
+              s.label + ': ' + s.status.toLowerCase() + ', speed ' + s.speedKmh + ' km/h, glare ' + s.glarePct + '%, object ' + s.distanceM + ' m',
+          });
+          const cx = x(i);
+          col.addEventListener('pointerenter', () => setHover(i, cx, card.wrap));
+          col.addEventListener('pointermove', () => {
+            if (hoverIndex !== i) setHover(i, cx, card.wrap);
+          });
+          col.addEventListener('pointerleave', () => setHover(-1, 0, card.wrap));
+          col.addEventListener('focus', () => setHover(i, cx, card.wrap));
+          col.addEventListener('blur', () => setHover(-1, 0, card.wrap));
+          col.addEventListener('click', () => handlers.onSelect(i));
+          col.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handlers.onSelect(i);
+            } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+              e.preventDefault();
+              const hits = svg.querySelectorAll('.g-hit');
+              const next = hits[i + (e.key === 'ArrowRight' ? 1 : -1)];
+              if (next) next.focus();
+            }
+          });
+          svg.append(col);
+        }
+      });
+
+      if (focusKey) {
+        const again = host.querySelector('.g-hit[data-chart="' + focusKey.chart + '"][data-i="' + focusKey.i + '"]');
+        if (again) again.focus({ preventScroll: true });
+      }
+      moveHoverLines();
+    }
+
+    /** scans: revealed scans (evaluated). total: scans per run. selected: index or -1. */
+    function render(args) {
+      last = args;
+      if (hoverIndex >= args.scans.length) hoverIndex = -1;
+      draw();
+    }
+
+    if (typeof ResizeObserver === 'function') {
+      let w = host.clientWidth;
+      new ResizeObserver(function () {
+        if (host.clientWidth !== w) {
+          w = host.clientWidth;
+          hideTip();
+          hoverIndex = -1;
+          draw();
+        }
+      }).observe(host);
+    }
+
+    return { render: render };
+  }
+
+  ATM.charts = { create: create };
+})(window);
+
+
+/* src/app.js */
+/*
+ * app.js
+ * Wires the pure modules (config, engine, generator, scenarios) to the page.
+ *
+ * Flow: a run is 10 scans generated from a seed. The scans are revealed one by one,
+ * the engine judges each one for the current vehicle, and the views redraw.
+ * Changing the vehicle or a modification re-judges the same seeded sensor values.
+ */
+(function (root) {
+  'use strict';
+
+  const ATM = root.ATM;
+  const config = ATM.config;
+  const rng = ATM.rng;
+  const engine = ATM.engine;
+  const generator = ATM.generator;
+  const scenarios = ATM.scenarios;
+  const icons = ATM.icons;
+
+  const TOTAL = config.scansPerRun;
+  const T = config.thresholds;
+  const TIRE_MODS = ['performanceTires', 'wornTires'];
+  const SEED_ERROR = 'Enter a whole number from 0 to ' + rng.MAX_SEED + '.';
+
+  const $ = (id) => document.getElementById(id);
+  const f1 = (n) => n.toFixed(1);
+  const clampPct = (n) => Math.max(0, Math.min(100, n));
+  const esc = (s) =>
+    String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  const reduceMotion = () =>
+    typeof root.matchMedia === 'function' && root.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const instant = () => /[?&]instant\b/.test(root.location.search) || reduceMotion();
+
+  const state = {
+    scenarioId: scenarios.DEFAULT_ID,
+    seed: scenarios.getScenario(scenarios.DEFAULT_ID).seed,
+    profileId: 'ev-sedan',
+    mods: [],
+    samples: [],
+    stock: null,
+    vehicle: null,
+    run: null,
+    stockRun: null,
+    revealed: 0,
+    selected: -1,
+    follow: true,
+    playing: false,
+    startedAt: Date.now(),
+    runId: 0,
+    timer: 0,
+  };
+
+  const els = {};
+  let roadView;
+  let carSide;
+  let charts;
+  let logRunId = -1;
+  let logCount = 0;
+
+  /* ---------------------------------------------------------------- run control */
+
+  const scenarioNow = () => scenarios.getScenario(state.scenarioId);
+  /* Speed at which the speed rule warns. Each scenario sets its own (motorway vs city). */
+  const speedAlert = () => engine.speedAlertKmh(scenarioNow());
+
+  function generate() {
+    const scenario = scenarioNow();
+    state.samples = generator.generateRun(state.seed, scenario);
+    judge();
+  }
+
+  /* Judge the same sensor values for the stock vehicle and for the current setup. */
+  function judge() {
+    state.stock = engine.resolveVehicle(state.profileId, []);
+    state.vehicle = engine.resolveVehicle(state.profileId, state.mods);
+    const scenario = scenarioNow();
+    state.run = engine.evaluateRun(state.samples, state.vehicle, scenario);
+    state.stockRun = engine.evaluateRun(state.samples, state.stock, scenario);
+  }
+
+  function start() {
+    clearTimeout(state.timer);
+    state.runId += 1;
+    state.startedAt = Date.now();
+    state.follow = true;
+    state.selected = -1;
+    state.revealed = 0;
+    if (instant()) {
+      state.revealed = TOTAL;
+      finish();
+    } else {
+      state.playing = true;
+      step();
+      return;
+    }
+    renderRun();
+  }
+
+  function step() {
+    state.revealed += 1;
+    if (state.follow) state.selected = state.revealed - 1;
+    if (state.revealed >= TOTAL) finish();
+    else state.timer = setTimeout(step, config.scanIntervalMs);
+    renderRun();
+  }
+
+  function finish() {
+    state.playing = false;
+    const run = state.run;
+    if (state.follow) {
+      const worst = run.scans[run.worstIndex];
+      state.selected = worst.status === 'SAFE' ? TOTAL - 1 : run.worstIndex;
+    }
+    const c = run.counts;
+    els.live.textContent = 'Run finished. ' + c.SAFE + ' safe, ' + c.WARNING + ' warnings, ' + c.CRITICAL + ' critical.';
+  }
+
+  function reset() {
+    clearTimeout(state.timer);
+    state.runId += 1;
+    state.playing = false;
+    state.revealed = 0;
+    state.selected = -1;
+    state.follow = true;
+    els.live.textContent = 'Run cleared.';
+    renderRun();
+  }
+
+  function select(i, byUser) {
+    if (i < 0 || i >= state.revealed) return;
+    state.selected = i;
+    if (byUser) state.follow = false;
+    renderSelection();
+  }
+
+  /* ---------------------------------------------------------------- control actions */
+
+  function setScenario(id) {
+    if (id === state.scenarioId || !scenarios.getScenario(id)) return;
+    state.scenarioId = id;
+    state.seed = scenarios.getScenario(id).seed;
+    generate();
+    syncControls();
+    start();
+  }
+
+  function applySeed() {
+    const parsed = rng.parseSeed(els.seedInput.value);
+    if (parsed === null) {
+      els.seedInput.setAttribute('aria-invalid', 'true');
+      els.seedHint.textContent = SEED_ERROR;
+      els.seedHint.dataset.error = 'true';
+      return;
+    }
+    state.seed = parsed;
+    generate();
+    syncControls();
+    start();
+  }
+
+  function newSeed() {
+    state.seed = rng.randomSeed();
+    generate();
+    syncControls();
+    start();
+  }
+
+  function setProfile(id) {
+    state.profileId = id;
+    judge();
+    syncControls();
+    start();
+  }
+
+  function toggleMod(id, on) {
+    let note = '';
+    const set = state.mods.filter((m) => m !== id);
+    if (on) {
+      if (TIRE_MODS.indexOf(id) !== -1) {
+        const other = TIRE_MODS.filter((m) => m !== id)[0];
+        if (set.indexOf(other) !== -1) note = config.mods[other].label + ' was switched off. The two tire options cannot be fitted together.';
+        state.mods = set.filter((m) => m !== other).concat(id);
+      } else {
+        state.mods = set.concat(id);
+      }
+    } else {
+      state.mods = set;
+    }
+    state.mods.sort((a, b) => Object.keys(config.mods).indexOf(a) - Object.keys(config.mods).indexOf(b));
+    judge();
+    syncControls(note);
+    start();
+  }
+
+  /* ---------------------------------------------------------------- controls (built once, synced on change) */
+
+  function buildControls() {
+    els.scenarioGroup.innerHTML = scenarios.list
+      .map((s) => '<button type="button" role="radio" class="seg__btn" data-id="' + s.id + '">' + esc(s.name) + '</button>')
+      .join('');
+
+    els.modsGroup.innerHTML = Object.keys(config.mods)
+      .map((id) => {
+        const m = config.mods[id];
+        return (
+          '<label class="mod" for="mod-' + id + '"><input type="checkbox" id="mod-' + id + '" data-mod="' + id + '">' +
+          '<span class="mod__box" aria-hidden="true"></span>' +
+          '<span class="mod__text"><span class="mod__name">' + esc(m.label) + '</span><span class="mod__detail">' + esc(m.detail) + '</span></span></label>'
+        );
+      })
+      .join('');
+
+    els.profileSelect.innerHTML = Object.keys(config.profiles)
+      .map((id) => '<option value="' + id + '">' + esc(config.profiles[id].name) + '</option>')
+      .join('');
+
+    els.strip.innerHTML = Array.from({ length: TOTAL }, (_, i) => '<button type="button" class="pip" data-i="' + i + '"></button>').join('');
+  }
+
+  function syncControls(modsNote) {
+    const scenario = scenarios.getScenario(state.scenarioId);
+    els.scenarioGroup.querySelectorAll('.seg__btn').forEach((b) => {
+      const on = b.dataset.id === state.scenarioId;
+      b.setAttribute('aria-checked', on ? 'true' : 'false');
+      b.tabIndex = on ? 0 : -1;
+    });
+    els.scenarioNote.textContent = scenario.tagline;
+
+    els.seedInput.value = String(state.seed);
+    els.seedInput.removeAttribute('aria-invalid');
+    delete els.seedHint.dataset.error;
+    els.seedHint.textContent =
+      state.seed === scenario.seed
+        ? 'Preset seed for this scenario. Use New seed to explore other runs.'
+        : 'Reuse this number to get the same sensor values.';
+
+    els.profileSelect.value = state.profileId;
+    const v = state.vehicle;
+    els.profileStats.textContent = 'μ ' + v.mu.toFixed(2) + ' · brakes ' + v.brakeEfficiency.toFixed(2) + ' · reaction ' + v.reactionTimeS.toFixed(2) + ' s';
+    els.modsGroup.querySelectorAll('input[data-mod]').forEach((input) => {
+      input.checked = state.mods.indexOf(input.dataset.mod) !== -1;
+    });
+    els.modsHint.textContent = modsNote || 'Changing the vehicle replays the same seeded run, so you can compare the effect.';
+    els.footSeed.textContent = 'seed ' + state.seed;
+    renderRules();
+  }
+
+  /* ---------------------------------------------------------------- rendering */
+
+  function revealed() {
+    return state.run.scans.slice(0, state.revealed);
+  }
+
+  function selectedScan() {
+    return state.selected >= 0 && state.selected < state.revealed ? state.run.scans[state.selected] : null;
+  }
+
+  function renderRun() {
+    renderTopbar();
+    renderSummary();
+    renderLog();
+    renderSelection();
+  }
+
+  function renderTopbar() {
+    const stat = state.playing ? 'running' : state.revealed === 0 ? 'idle' : 'finished';
+    els.sysStat.dataset.state = stat;
+    els.sysStat.textContent =
+      'SYS_STAT: ' + (stat === 'running' ? 'RUNNING ' + state.revealed + '/' + TOTAL : stat.toUpperCase());
+  }
+
+  function renderSummary() {
+    const counts = { SAFE: 0, WARNING: 0, CRITICAL: 0 };
+    revealed().forEach((s) => {
+      counts[s.status] += 1;
+    });
+    els.cTotal.innerHTML = state.revealed + '<span> / ' + TOTAL + '</span>';
+    els.cSafe.textContent = counts.SAFE;
+    els.cWarn.textContent = counts.WARNING;
+    els.cCrit.textContent = counts.CRITICAL;
+
+    els.strip.querySelectorAll('.pip').forEach((pip, i) => {
+      const scan = i < state.revealed ? state.run.scans[i] : null;
+      pip.className = 'pip' + (scan ? ' pip--' + scan.status.toLowerCase() : ' pip--pending');
+      pip.disabled = !scan;
+      pip.innerHTML = (scan ? icons.status[scan.status] : '<span class="pip__dot"></span>') + '<span class="pip__label">T' + (i + 1) + '</span>';
+      pip.setAttribute('aria-label', scan ? 'T' + (i + 1) + ': ' + scan.status.toLowerCase() : 'T' + (i + 1) + ': not scanned yet');
+    });
+  }
+
+  function logRow(scan) {
+    const tr = document.createElement('tr');
+    const status = scan.status.toLowerCase();
+    const iso = new Date(state.startedAt + scan.index * 1000).toISOString();
+    const extra = scan.reasons.length > 1 ? '<span class="more" title="' + esc(scan.reasons.join('\n')) + '">+' + (scan.reasons.length - 1) + '</span>' : '';
+    tr.className = 'logrow logrow--' + status;
+    tr.tabIndex = 0;
+    tr.dataset.i = String(scan.index);
+    tr.innerHTML =
+      '<td class="c-time" data-label="Time"><span class="c-scan">' + scan.label + '</span>' +
+      '<time datetime="' + iso + '"><span class="c-date">' + iso.slice(0, 10) + '</span> <span class="c-clock">' + iso.slice(11, 23) + ' UTC</span></time></td>' +
+      '<td class="c-status" data-label="Status"><span class="badge badge--' + status + '">' + icons.status[scan.status] + scan.status + '</span></td>' +
+      '<td class="c-reason" data-label="Reason">' + esc(scan.reasons[0]) + extra + '</td>' +
+      '<td class="num c-speed" data-label="Speed">' + scan.speedKmh + ' km/h</td>' +
+      '<td class="num c-glare" data-label="Glare">' + scan.glarePct + '%</td>' +
+      '<td class="num c-dist" data-label="Object / stop"><span class="' + (scan.distanceM < scan.stoppingDistanceM ? 'is-inside' : '') + '">' + scan.distanceM + '</span> / ' + f1(scan.stoppingDistanceM) + ' m</td>' +
+      '<td class="c-weather" data-label="Weather"><span class="wx">' + icons.weather[scan.weather] + esc(scan.weather) + '</span></td>';
+    return tr;
+  }
+
+  /* Rows are added once per scan so keyboard focus survives while a run plays. */
+  function renderLog() {
+    if (logRunId !== state.runId) {
+      els.logBody.textContent = '';
+      logRunId = state.runId;
+      logCount = 0;
+    }
+    for (let i = logCount; i < state.revealed; i += 1) els.logBody.prepend(logRow(state.run.scans[i]));
+    logCount = state.revealed;
+  }
+
+  function renderSelection() {
+    const scan = selectedScan();
+    markSelected();
+    renderStatus(scan);
+    renderMetrics(scan);
+    renderRoad(scan);
+    renderCar(scan);
+    renderCompare(scan);
+    charts.render({ scans: revealed(), all: state.run.scans, total: TOTAL, selected: scan ? scan.index : -1, speedAlertKmh: speedAlert() });
+  }
+
+  function markSelected() {
+    els.strip.querySelectorAll('.pip').forEach((pip) => {
+      pip.setAttribute('aria-pressed', String(Number(pip.dataset.i) === state.selected));
+    });
+    els.logBody.querySelectorAll('.logrow').forEach((row) => {
+      if (Number(row.dataset.i) === state.selected) row.setAttribute('aria-current', 'true');
+      else row.removeAttribute('aria-current');
+    });
+  }
+
+  function renderStatus(scan) {
+    const panel = els.statusPanel;
+    if (!scan) {
+      panel.dataset.status = 'idle';
+      els.statusIcon.innerHTML =
+        '<svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.3"/><path d="M5.5 8h5"/></svg>';
+      els.statusScan.textContent = 'No scan yet';
+      els.statusWord.textContent = 'STANDBY';
+      els.statusReasons.innerHTML = '<li class="reason reason--idle">Press Run again to replay the scans.</li>';
+      return;
+    }
+    const worst = state.run.scans[state.run.worstIndex];
+    const mostSevere = !state.playing && scan.index === state.run.worstIndex && worst.status !== 'SAFE';
+    panel.dataset.status = scan.status.toLowerCase();
+    els.statusIcon.innerHTML = icons.status[scan.status];
+    els.statusScan.textContent = 'Scan ' + scan.label + (mostSevere ? ' · most severe in this run' : state.playing && scan.index === state.revealed - 1 ? ' · latest' : '');
+    els.statusWord.textContent = scan.status;
+    els.statusReasons.innerHTML = scan.reasonDetails.length
+      ? scan.reasonDetails
+          .map((r) => '<li class="reason reason--' + r.level.toLowerCase() + '">' + icons.status[r.level] + '<span>' + esc(r.text) + '</span></li>')
+          .join('')
+      : '<li class="reason reason--safe">' + icons.status.SAFE + '<span>' + esc(scan.reasons[0]) + '</span></li>';
+  }
+
+  function metricStates(scan) {
+    const lowGrip = T.lowGripSpeedKmh[scan.weather];
+    return {
+      speed: scan.speedKmh >= speedAlert() || (lowGrip !== undefined && scan.speedKmh > lowGrip) ? 'warning' : 'ok',
+      glare: scan.glarePct >= T.glareWarningPct ? 'warning' : 'ok',
+      distance: scan.distanceM < scan.stoppingDistanceM ? 'critical' : scan.distanceM < scan.warnLimitM ? 'warning' : 'ok',
+      ttc: scan.ttcS < T.ttcCriticalS ? 'critical' : scan.ttcS < T.ttcWarningS ? 'warning' : 'ok',
+    };
+  }
+
+  function tile(o) {
+    const flag = o.state && o.state !== 'ok' ? icons.status[o.state.toUpperCase()] : '';
+    return (
+      '<div class="metric" data-key="' + o.key + '" data-state="' + (o.state || 'ok') + '">' +
+      '<div class="metric__top"><span class="metric__name">' + o.name + '</span><span class="metric__flag">' + flag + '</span></div>' +
+      '<div class="metric__value"><strong>' + o.value + '</strong>' + (o.unit ? '<span>' + o.unit + '</span>' : '') + '</div>' +
+      (o.pct == null
+        ? ''
+        : '<div class="meter"><span style="width:' + clampPct(o.pct).toFixed(1) + '%"></span>' + (o.mark != null ? '<i style="left:' + clampPct(o.mark).toFixed(1) + '%"></i>' : '') + '</div>') +
+      '<p class="metric__note">' + o.note + '</p></div>'
+    );
+  }
+
+  function renderMetrics(scan) {
+    if (!scan) {
+      const dash = [
+        ['speed', 'Speed', 'km/h'],
+        ['glare', 'Camera glare', '%'],
+        ['distance', 'Object distance', 'm'],
+        ['stop', 'Stopping distance', 'm'],
+        ['ttc', 'Time to collision', 's'],
+        ['env', 'Environment', ''],
+      ];
+      els.metrics.innerHTML = dash
+        .map((d) => tile({ key: d[0], name: d[1], value: '–', unit: d[2], pct: d[0] === 'env' ? null : 0, note: 'Waiting for a scan' }))
+        .join('');
+      return;
+    }
+    const st = metricStates(scan);
+    const lowGrip = T.lowGripSpeedKmh[scan.weather];
+    const ttc = Number.isFinite(scan.ttcS) ? scan.ttcS.toFixed(2) : '–';
+    els.metrics.innerHTML = [
+      tile({
+        key: 'speed', name: 'Speed', value: scan.speedKmh, unit: 'km/h', state: st.speed,
+        pct: (scan.speedKmh / 130) * 100, mark: (speedAlert() / 130) * 100,
+        note: 'Alert at ' + speedAlert() + ' km/h' + (lowGrip !== undefined ? ', ' + lowGrip + ' km/h in ' + scan.weather.toLowerCase() : ''),
+      }),
+      tile({
+        key: 'glare', name: 'Camera glare', value: scan.glarePct, unit: '%', state: st.glare,
+        pct: scan.glarePct, mark: T.glareWarningPct, note: 'Alert at ' + T.glareWarningPct + '%',
+      }),
+      tile({
+        key: 'distance', name: 'Object distance', value: scan.distanceM, unit: 'm', state: st.distance,
+        pct: (scan.distanceM / 200) * 100, mark: (scan.stoppingDistanceM / 200) * 100,
+        note: scan.distanceM < scan.stoppingDistanceM ? 'Inside the ' + f1(scan.stoppingDistanceM) + ' m stopping distance' : 'Stopping distance ' + f1(scan.stoppingDistanceM) + ' m',
+      }),
+      tile({
+        key: 'stop', name: 'Stopping distance', value: f1(scan.stoppingDistanceM), unit: 'm', state: 'ok',
+        pct: (scan.stoppingDistanceM / 200) * 100,
+        note: 'Reaction ' + f1(scan.reactionM) + ' m + braking ' + f1(scan.brakingM) + ' m',
+      }),
+      tile({
+        key: 'ttc', name: 'Time to collision', value: ttc, unit: 's', state: st.ttc,
+        pct: Number.isFinite(scan.ttcS) ? (scan.ttcS / 8) * 100 : 100, mark: (T.ttcWarningS / 8) * 100,
+        note: Number.isFinite(scan.ttcS) ? 'Warning below ' + T.ttcWarningS + ' s, critical below ' + T.ttcCriticalS + ' s' : 'The vehicle is stopped',
+      }),
+      tile({
+        key: 'env', name: 'Environment', value: esc(scan.weather), unit: '', state: 'ok',
+        note: 'Tyre grip ×' + engine.gripFactor(scan.weather).toFixed(2),
+      }).replace('<span class="metric__flag"></span>', '<span class="metric__flag metric__flag--wx">' + icons.weather[scan.weather] + '</span>'),
+    ].join('');
+  }
+
+  function renderRoad(scan) {
+    const svg = els.roadView;
+    if (!scan) {
+      svg.dataset.idle = 'true';
+      roadView.update({
+        speedKmh: 0, glarePct: 0, distanceM: 60, weather: 'Clear', status: 'SAFE',
+        reactionM: 0, stopM: 0, warnM: 0, vehicle: state.vehicle, playing: false,
+      });
+      return;
+    }
+    svg.dataset.idle = 'false';
+    roadView.update({
+      speedKmh: scan.speedKmh, glarePct: scan.glarePct, distanceM: scan.distanceM, weather: scan.weather, status: scan.status,
+      reactionM: scan.reactionM, stopM: scan.stoppingDistanceM, warnM: scan.warnLimitM, vehicle: state.vehicle, playing: state.playing,
+    });
+  }
+
+  function renderCar(scan) {
+    carSide.update({
+      status: scan ? scan.status : null,
+      mods: state.vehicle.mods,
+      weather: scan ? scan.weather : 'Clear',
+      speedKmh: scan ? scan.speedKmh : 0,
+      playing: state.playing,
+    });
+  }
+
+  function countsOf(scans) {
+    const c = { SAFE: 0, WARNING: 0, CRITICAL: 0 };
+    scans.forEach((s) => {
+      c[s.status] += 1;
+    });
+    return c;
+  }
+
+  function renderCompare(scan) {
+    if (!scan) {
+      els.cmpBody.innerHTML = '<p class="cmp__empty">Run the scans to compare the stock vehicle with your setup.</p>';
+      return;
+    }
+    const stockScan = state.stockRun.scans[scan.index];
+    const a = stockScan.stoppingDistanceM;
+    const b = scan.stoppingDistanceM;
+    const scale = Math.max(a, b, scan.distanceM) * 1.08;
+    const pos = (m) => ((m / scale) * 100).toFixed(1);
+    const modNames = state.vehicle.mods.map((id) => config.mods[id].label);
+    const setupName = modNames.length ? state.vehicle.name + ' + ' + modNames.join(' + ').toLowerCase() : state.vehicle.name + ' (no modifications)';
+    const delta = b - a;
+    let deltaText;
+    if (Math.abs(delta) < 0.05) deltaText = modNames.length ? 'Same stopping distance in this scan.' : 'Turn on a modification to compare it with the stock vehicle.';
+    else deltaText = f1(Math.abs(delta)) + ' m ' + (delta < 0 ? 'shorter' : 'longer') + ' (' + (delta < 0 ? '−' : '+') + Math.abs((delta / a) * 100).toFixed(0) + '%) than stock.';
+
+    const row = (name, stop, cls) =>
+      '<div class="cmp__row ' + cls + '"><div class="cmp__label"><span class="cmp__name">' + esc(name) + '</span><strong class="cmp__val">' + f1(stop) + ' m</strong></div>' +
+      (scan.distanceM < stop ? '<span class="cmp__flag">Would still reach the object</span>' : '') +
+      '<div class="cmp__bar" role="img" aria-label="' + esc(name) + ' stops in ' + f1(stop) + ' metres, object at ' + scan.distanceM + ' metres">' +
+      '<span class="cmp__fill' + (scan.distanceM < stop ? ' is-over' : '') + '" style="width:' + pos(stop) + '%"></span>' +
+      '<i class="cmp__obj" style="left:' + pos(scan.distanceM) + '%"></i></div></div>';
+
+    const ca = countsOf(state.stockRun.scans.slice(0, state.revealed));
+    const cb = countsOf(revealed());
+    const runLine = (name, c) =>
+      '<tr><th scope="row">' + esc(name) + '</th><td>' + c.SAFE + '</td><td>' + c.WARNING + '</td><td>' + c.CRITICAL + '</td></tr>';
+
+    const hasMods = state.vehicle.mods.length > 0;
+    const intro = '<p class="cmp__scan">Scan ' + scan.label + ' · ' + esc(scan.weather) + ' · ' + scan.speedKmh + ' km/h · object at ' + scan.distanceM + ' m</p>';
+    const legend = '<p class="cmp__legend"><i class="cmp__key cmp__key--obj"></i>Object distance. A bar that passes the mark would not stop in time.</p>';
+
+    if (!hasMods) {
+      // Nothing to compare yet: show the stock vehicle once instead of two identical bars.
+      els.cmpBody.innerHTML =
+        intro +
+        row('Stock ' + state.stock.name, a, 'cmp__row--stock') +
+        legend +
+        '<p class="cmp__delta" data-dir="same">Turn on a modification to compare it with the stock vehicle.</p>';
+      return;
+    }
+
+    els.cmpBody.innerHTML =
+      intro +
+      row('Stock ' + state.stock.name, a, 'cmp__row--stock') +
+      row(setupName, b, 'cmp__row--setup') +
+      legend +
+      '<p class="cmp__delta" data-dir="' + (Math.abs(delta) < 0.05 ? 'same' : delta < 0 ? 'better' : 'worse') + '">' + deltaText + '</p>' +
+      '<table class="cmp__runtable"><caption>Whole run, same seed (' + state.seed + ')</caption>' +
+      '<thead><tr><th scope="col"><span class="sr-only">Vehicle</span></th><th scope="col">Safe</th><th scope="col">Warning</th><th scope="col">Critical</th></tr></thead><tbody>' +
+      runLine('Stock', ca) + runLine('Your setup', cb) + '</tbody></table>';
+  }
+
+  function renderRules() {
+    const scenario = scenarioNow();
+    const rows = [
+      ['CRITICAL', 'Time to collision', 'below ' + T.ttcCriticalS + ' s'],
+      ['CRITICAL', 'Object distance', 'closer than the stopping distance'],
+      ['WARNING', 'Time to collision', 'below ' + T.ttcWarningS + ' s'],
+      ['WARNING', 'Object distance', 'inside ' + T.stoppingWarningFactor + '× the stopping distance'],
+      ['WARNING', 'Speed', 'at or above ' + speedAlert() + ' km/h (' + scenario.name + ')'],
+      ['WARNING', 'Camera glare', 'at or above ' + T.glareWarningPct + '%'],
+    ].concat(Object.keys(T.lowGripSpeedKmh).map((w) => ['WARNING', 'Speed in ' + w.toLowerCase(), 'above ' + T.lowGripSpeedKmh[w] + ' km/h']));
+    rows.push(['SAFE', 'Everything else', 'no rule fired']);
+    $('ruleTable').innerHTML =
+      '<thead><tr><th scope="col">Level</th><th scope="col">Rule</th><th scope="col">Triggers when</th></tr></thead><tbody>' +
+      rows
+        .map((r) => '<tr><td><span class="badge badge--' + r[0].toLowerCase() + '">' + icons.status[r[0]] + r[0] + '</span></td><td>' + esc(r[1]) + '</td><td>' + esc(r[2]) + '</td></tr>')
+        .join('') +
+      '</tbody>';
+
+    // notes that do not change with the scenario are added once
+    if (!document.getElementById('ruleNoteWeather')) {
+      const grip = Object.keys(config.weatherGrip).map((w) => w + ' ×' + config.weatherGrip[w].toFixed(1)).join(', ');
+      const alerts = scenarios.list.map((sc) => sc.name + ' ' + engine.speedAlertKmh(sc) + ' km/h').join(', ');
+      const notes = document.querySelector('.rules__notes');
+      const second = document.createElement('li');
+      second.id = 'ruleNoteSpeed';
+      second.textContent = 'Each scenario sets its own speed alert, so a motorway is not judged by a city limit: ' + alerts + '.';
+      const first = document.createElement('li');
+      first.id = 'ruleNoteWeather';
+      first.textContent = 'Weather multiplies tyre grip: ' + grip + '.';
+      notes.prepend(first, second);
+    }
+  }
+
+  /* ---------------------------------------------------------------- events and boot */
+
+  function bind() {
+    els.scenarioGroup.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-id]');
+      if (b) setScenario(b.dataset.id);
+    });
+    els.scenarioGroup.addEventListener('keydown', (e) => {
+      const dir = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+      if (!dir) return;
+      e.preventDefault();
+      const ids = scenarios.list.map((s) => s.id);
+      const next = ids[(ids.indexOf(state.scenarioId) + dir + ids.length) % ids.length];
+      setScenario(next);
+      els.scenarioGroup.querySelector('[data-id="' + next + '"]').focus();
+    });
+    els.seedApply.addEventListener('click', applySeed);
+    els.seedNew.addEventListener('click', newSeed);
+    els.seedInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        applySeed();
+      }
+    });
+    els.profileSelect.addEventListener('change', () => setProfile(els.profileSelect.value));
+    els.modsGroup.addEventListener('change', (e) => {
+      const input = e.target.closest('input[data-mod]');
+      if (input) toggleMod(input.dataset.mod, input.checked);
+    });
+    els.runAgain.addEventListener('click', start);
+    els.reset.addEventListener('click', reset);
+    els.strip.addEventListener('click', (e) => {
+      const pip = e.target.closest('.pip');
+      if (pip) select(Number(pip.dataset.i), true);
+    });
+    els.logBody.addEventListener('click', (e) => {
+      const row = e.target.closest('.logrow');
+      if (row) select(Number(row.dataset.i), true);
+    });
+    els.logBody.addEventListener('keydown', (e) => {
+      const row = e.target.closest('.logrow');
+      if (!row) return;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        select(Number(row.dataset.i), true);
+      } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        const next = e.key === 'ArrowDown' ? row.nextElementSibling : row.previousElementSibling;
+        if (next) next.focus();
+      }
+    });
+  }
+
+  /* Theme: black and gold by default, ivory and gold on request. The choice is remembered in the browser. */
+  function initTheme() {
+    const html = document.documentElement;
+    const button = $('themeToggle');
+    const KEY = 'atm-theme';
+    function apply(theme) {
+      if (theme === 'light') html.setAttribute('data-theme', 'light');
+      else html.removeAttribute('data-theme');
+      if (button) button.textContent = theme === 'light' ? 'Black theme' : 'Ivory theme';
+    }
+    let saved = null;
+    try {
+      saved = root.localStorage.getItem(KEY);
+    } catch (e) {
+      /* storage can be blocked; the page still works */
+    }
+    apply(saved === 'light' ? 'light' : 'dark');
+    if (button) {
+      button.addEventListener('click', () => {
+        const next = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+        apply(next);
+        try {
+          root.localStorage.setItem(KEY, next);
+        } catch (e) {
+          /* ignore */
+        }
+      });
+    }
+  }
+
+  function init() {
+    initTheme();
+    [
+      'sysStat', 'runAgain', 'reset', 'scenarioGroup', 'scenarioNote', 'seedInput', 'seedApply', 'seedNew', 'seedHint',
+      'profileSelect', 'profileStats', 'modsGroup', 'modsHint', 'cTotal', 'cSafe', 'cWarn', 'cCrit', 'strip', 'roadView',
+      'statusPanel', 'statusIcon', 'statusScan', 'statusWord', 'statusReasons', 'metrics', 'cmpBody', 'charts', 'logBody',
+      'footSeed',
+    ].forEach((id) => {
+      els[id] = $(id);
+    });
+    els.live = $('liveMsg');
+
+    roadView = ATM.roadView.create(els.roadView);
+    carSide = ATM.carSide.create($('carSide'));
+    charts = ATM.charts.create(els.charts, { onSelect: (i) => select(i, true) });
+
+    buildControls();
+    generate();
+    syncControls();
+    bind();
+    start();
+  }
+
+  ATM.app = { state: state, start: start, reset: reset, select: select };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})(window);
+
+</script>
+</body>
+</html>
