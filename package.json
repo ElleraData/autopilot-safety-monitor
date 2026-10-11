@@ -1,0 +1,15 @@
+{
+  "name": "autopilot-telemetry",
+  "version": "2.0.0",
+  "description": "Educational driver-assistance simulation: simulated sensor data, rule-based alerts, stopping-distance physics. Not vehicle telemetry or driving advice.",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test",
+    "build": "node scripts/bundle.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

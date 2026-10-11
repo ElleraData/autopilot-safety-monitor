@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Autopilot Telemetry</title>
+  <meta name="description" content="Educational driver-assistance simulation with simulated sensor data, rule-based alerts and stopping-distance physics.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&amp;family=Barlow:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <svg class="brand__mark" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h4l2.5-6 4 12 2.5-6H22"/></svg>
+      <h1 class="brand__name">Autopilot Telemetry</h1>
+    </div>
+    <div class="topbar__actions">
+      <span class="sysstat" id="sysStat" role="status" data-state="finished">SYS_STAT: FINISHED</span>
+      <button type="button" class="btn btn--primary" id="runAgain">Run again</button>
+      <button type="button" class="btn" id="reset">Reset</button>
+      <button type="button" class="btn" id="themeToggle">Ivory theme</button>
+    </div>
+  </header>
+  <p class="disclaimer">Independent educational simulation • simulated sensor data • rule-based alerts • not vehicle telemetry or driving advice.</p>
+
+  <div class="top">
+    <section class="panel garage" aria-labelledby="garageTitle">
+      <div class="garage__head">
+        <h2 class="h2" id="garageTitle">Vehicle</h2>
+        <p class="garage__tag">Generic EV sedan. Not a real vehicle or brand.</p>
+      </div>
+      <svg class="garage__car" id="carSide" role="img" aria-label="Side view of a generic EV sedan"></svg>
+      <div class="garage__body">
+        <div class="field field--vehicle">
+          <label class="field__label" for="profileSelect">Profile</label>
+          <select class="input" id="profileSelect"></select>
+          <p class="field__hint mono" id="profileStats"></p>
+        </div>
+        <div class="field field--mods">
+          <span class="field__label" id="modsLabel">Simulated modifications</span>
+          <div class="mods" id="modsGroup" role="group" aria-labelledby="modsLabel"></div>
+          <p class="field__hint" id="modsHint">Changing the vehicle replays the same seeded run, so you can compare the effect.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel controls" aria-label="Run settings">
+      <div class="field field--scenario">
+        <span class="field__label" id="scenarioLabel">Scenario</span>
+        <div class="seg" id="scenarioGroup" role="radiogroup" aria-labelledby="scenarioLabel"></div>
+        <p class="field__hint" id="scenarioNote"></p>
+      </div>
+
+      <div class="field field--seed">
+        <label class="field__label" for="seedInput">Run seed</label>
+        <div class="seedrow">
+          <input class="input input--mono" id="seedInput" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" aria-describedby="seedHint">
+          <button type="button" class="btn" id="seedApply">Use seed</button>
+          <button type="button" class="btn" id="seedNew">New seed</button>
+        </div>
+        <p class="field__hint" id="seedHint">Reuse this number to get the same sensor values.</p>
+      </div>
+    </section>
+  </div>
+
+  <section class="summary" aria-label="Run summary">
+    <dl class="counts">
+      <div class="count"><dt>Total scans</dt><dd id="cTotal">10<span> / 10</span></dd></div>
+      <div class="count count--safe"><dt>Safe</dt><dd id="cSafe">0</dd></div>
+      <div class="count count--warning"><dt>Warnings</dt><dd id="cWarn">0</dd></div>
+      <div class="count count--critical"><dt>Critical</dt><dd id="cCrit">0</dd></div>
+    </dl>
+    <div class="strip" id="strip" role="group" aria-label="Scans in this run"></div>
+  </section>
+
+  <main class="stage">
+    <section class="roadcard" aria-label="Road view">
+      <svg class="road" id="roadView" role="img" aria-label="Top view of a generic EV sedan with stopping-distance zones and the detected object ahead"></svg>
+      <p class="roadcard__note">Distances are drawn on a compressed scale. Read the tick marks for real metres.</p>
+    </section>
+
+    <div class="readout">
+      <section class="panel statuspanel" id="statusPanel" data-status="idle" aria-live="off">
+        <div class="statuspanel__head">
+          <div class="statuspanel__icon" id="statusIcon"></div>
+          <div>
+            <p class="statuspanel__scan" id="statusScan">Scan T1</p>
+            <p class="statuspanel__word" id="statusWord">SAFE</p>
+          </div>
+        </div>
+        <ul class="reasons" id="statusReasons"></ul>
+      </section>
+
+      <section class="metrics" id="metrics" aria-label="Sensor readings for the selected scan"></section>
+
+      <section class="panel compare" aria-labelledby="cmpTitle">
+        <h2 class="h2" id="cmpTitle">Stopping distance with and without modifications</h2>
+        <div id="cmpBody"></div>
+      </section>
+    </div>
+  </main>
+
+  <section class="panel chartspanel" aria-labelledby="trendTitle">
+    <div class="panel__head">
+      <h2 class="h2" id="trendTitle">Telemetry trend</h2>
+      <p class="panel__sub">Simulated speed and camera glare for each scan. Select a point to inspect that scan.</p>
+    </div>
+    <div class="charts" id="charts"></div>
+  </section>
+
+  <section class="panel logpanel" aria-labelledby="logTitle">
+    <div class="panel__head">
+      <h2 class="h2" id="logTitle">Telemetry log</h2>
+      <p class="panel__sub">Newest scan first. Select a row to inspect it.</p>
+    </div>
+    <div class="tablewrap">
+      <table class="log">
+        <thead>
+          <tr>
+            <th scope="col">Timestamp</th>
+            <th scope="col">Status</th>
+            <th scope="col">Reason</th>
+            <th scope="col" class="num">Speed</th>
+            <th scope="col" class="num">Glare</th>
+            <th scope="col" class="num">Object / stop (m)</th>
+            <th scope="col">Weather</th>
+          </tr>
+        </thead>
+        <tbody id="logBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <details class="panel rules">
+    <summary>How alerts are decided</summary>
+    <div class="rules__body">
+      <p>Each scan is checked against these rules. The highest severity wins, and every rule that fired is listed as a reason. All numbers come from <code>src/config.js</code>.</p>
+      <div class="tablewrap">
+        <table class="ruletable" id="ruleTable"></table>
+      </div>
+      <p class="rules__formula mono">stopping distance = v × t<sub>reaction</sub> + v² / (2 × μ × weather × g × brakes), with v in m/s</p>
+      <ul class="rules__notes">
+        <li>The object ahead is treated as stationary, so relative speed is ignored and time to collision is distance ÷ own speed.</li>
+        <li>Sensor values are generated for each scan from the run seed. They are not integrated from a vehicle model.</li>
+        <li>The vehicle is a generic EV sedan. It does not describe any real vehicle or brand.</li>
+      </ul>
+    </div>
+  </details>
+
+  <footer class="footer">Autopilot Telemetry · educational simulation · <span class="mono" id="footSeed"></span></footer>
+  <p class="sr-only" id="liveMsg" role="status" aria-live="polite"></p>
+</div>
+
+<script src="src/config.js"></script>
+<script src="src/rng.js"></script>
+<script src="src/engine.js"></script>
+<script src="src/generator.js"></script>
+<script src="src/scenarios.js"></script>
+<script src="src/ui/icons.js"></script>
+<script src="src/ui/car-side.js"></script>
+<script src="src/ui/road-view.js"></script>
+<script src="src/ui/charts.js"></script>
+<script src="src/app.js"></script>
+</body>
+</html>
